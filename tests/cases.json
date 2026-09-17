@@ -1,0 +1,443 @@
+[
+  {
+    "id": "en-viral-fever",
+    "lang": "en-IN",
+    "say": "good evening what happened. sir I have fever since three days and body ache also headache. any cough. yes sir dry cough and sore throat. let me check your temperature is 101.2 and BP is 130 by 80 pulse 92. okay this is viral fever nothing to worry. we will do CBC and Dengue NS1 to be safe. I am giving you dolo 650 three times daily after food for three days. drink plenty of fluids and take rest. come back in three days for review",
+    "expect": {
+      "diagnosis": "viral fever",
+      "v_temp": "101.2",
+      "v_bp": "130/80",
+      "v_pulse": "92",
+      "meds": [
+        "Tab Paracetamol 650mg"
+      ],
+      "med_when": [
+        "After Food"
+      ],
+      "med_freq": [
+        "TDS"
+      ],
+      "med_dur": [
+        "3 days"
+      ],
+      "labs": [
+        "CBC",
+        "Dengue NS1"
+      ],
+      "followDays": 3
+    }
+  },
+  {
+    "id": "hi-gastritis",
+    "lang": "hi-IN",
+    "say": "namaste kya hua. sir do din se pet dard aur ulti ho rahi hai. khana kaisa hai. sir acidity bhi hai raat ko jalan hoti hai. dekhta hoon BP 120 by 80 hai sugar 110. pan 40 khali pet ek baar paanch din. paani piye aur tel masala mat khaiye. char din baad dubara aana",
+    "expect": {
+      "v_bp": "120/80",
+      "v_sugar": "110",
+      "meds": [
+        "Tab Pantoprazole 40mg"
+      ],
+      "med_when": [
+        "Empty Stomach"
+      ],
+      "med_freq": [
+        "OD"
+      ],
+      "med_dur": [
+        "5 days"
+      ],
+      "followDays": 4
+    }
+  },
+  {
+    "id": "en-two-medicines",
+    "lang": "en-IN",
+    "say": "patient has fever and stomach pain since two days. temperature 100.4 BP 118 by 76. this is gastritis. I am giving you dolo 650 twice daily after food for three days and pan 40 empty stomach once daily for five days. avoid oily and spicy food. come back in five days",
+    "expect": {
+      "diagnosis": "gastritis",
+      "v_temp": "100.4",
+      "v_bp": "118/76",
+      "meds": [
+        "Tab Paracetamol 650mg",
+        "Tab Pantoprazole 40mg"
+      ],
+      "med_when": [
+        "After Food",
+        "Empty Stomach"
+      ],
+      "med_freq": [
+        "BD",
+        "OD"
+      ],
+      "followDays": 5
+    }
+  },
+  {
+    "id": "en-spoken-numbers",
+    "lang": "en-IN",
+    "say": "doctor good morning. sir I have cough since five days. temperature is 99.8. this is bronchitis. azithral five hundred once daily for three days. steam inhalation twice a day. come back in seven days",
+    "expect": {
+      "diagnosis": "bronchitis",
+      "v_temp": "99.8",
+      "meds": [
+        "Tab Azithromycin 500mg"
+      ],
+      "med_freq": [
+        "OD"
+      ],
+      "med_dur": [
+        "3 days"
+      ],
+      "followDays": 7
+    }
+  },
+  {
+    "id": "en-diabetes-review",
+    "lang": "en-IN",
+    "say": "how are you sir. doctor my sugar is not coming down. let me see. sugar 210 BP 140 by 90 weight 78. this is type 2 diabetes. we will do HbA1c and fasting blood sugar. glycomet 500 twice daily after food for thirty days. walk 30 minutes daily. check sugar daily and keep a record. come back in fifteen days",
+    "expect": {
+      "diagnosis": "type 2 diabetes",
+      "v_sugar": "210",
+      "v_bp": "140/90",
+      "v_weight": "78",
+      "meds": [
+        "Tab Metformin 500mg"
+      ],
+      "med_freq": [
+        "BD"
+      ],
+      "med_when": [
+        "After Food"
+      ],
+      "labs": [
+        "HbA1c"
+      ],
+      "followDays": 15
+    }
+  },
+  {
+    "id": "hi-fever-child",
+    "lang": "hi-IN",
+    "say": "kya takleef hai. sir bacche ko do din se bukhar hai aur khansi bhi. temperature 102 hai. yeh viral fever lagta hai. crocin 650 din mein teen baar khane ke baad teen din. paani piye aur aaram kare. teen din baad dubara aana",
+    "expect": {
+      "v_temp": "102",
+      "meds": [
+        "Tab Paracetamol 650mg"
+      ],
+      "med_when": [
+        "After Food"
+      ],
+      "med_freq": [
+        "TDS"
+      ],
+      "med_dur": [
+        "3 days"
+      ],
+      "followDays": 3
+    }
+  },
+  {
+    "id": "en-hypertension",
+    "lang": "en-IN",
+    "say": "sir my head is heavy since one week. BP is 160 by 100 pulse 88. this is hypertension. telma 40 once daily after food for thirty days. we will do lipid profile and serum electrolytes. reduce salt. walk 30 minutes daily. come back in thirty days",
+    "expect": {
+      "diagnosis": "hypertension",
+      "v_bp": "160/100",
+      "v_pulse": "88",
+      "meds": [
+        "Tab Telmisartan 40mg"
+      ],
+      "med_freq": [
+        "OD"
+      ],
+      "labs": [
+        "Lipid Profile",
+        "Serum Electrolytes"
+      ],
+      "followDays": 30
+    }
+  },
+  {
+    "id": "en-no-diagnosis-stated",
+    "lang": "en-IN",
+    "say": "sir I have loose motion since one day and weakness. temperature 99.2. take ors sachets and plenty of fluids. come back in two days if it does not settle",
+    "expect": {
+      "v_temp": "99.2",
+      "followDays": 2,
+      "noDiagnosisWord": true
+    }
+  },
+  {
+    "id": "en-spo2-covid",
+    "lang": "en-IN",
+    "say": "sir I have fever and breathlessness since four days. temperature 100.8 spo2 94 pulse 104 BP 122 by 78. we will do CBC and chest x-ray. take rest and plenty of fluids. come back tomorrow",
+    "expect": {
+      "v_temp": "100.8",
+      "v_spo2": "94",
+      "v_pulse": "104",
+      "v_bp": "122/78",
+      "labs": [
+        "CBC",
+        "Chest X-ray"
+      ],
+      "followDays": 1
+    }
+  },
+  {
+    "id": "en-brand-only",
+    "lang": "en-IN",
+    "say": "this is acid peptic disease. I am giving you omez twenty empty stomach once daily for fourteen days. avoid oily and spicy food",
+    "expect": {
+      "meds": [
+        "Cap Omeprazole 20mg"
+      ],
+      "med_when": [
+        "Empty Stomach"
+      ],
+      "med_freq": [
+        "OD"
+      ]
+    }
+  },
+  {
+    "id": "en-dx-runs-into-drug",
+    "lang": "en-IN",
+    "say": "sir I have fever since three days and body ache. temperature 101.2 BP 130 by 80. this is viral fever dolo 650 three times daily after food for three days. come back in three days",
+    "expect": {
+      "diagnosis": "viral fever",
+      "v_temp": "101.2",
+      "v_bp": "130/80",
+      "meds": [
+        "Tab Paracetamol 650mg"
+      ],
+      "med_when": [
+        "After Food"
+      ],
+      "med_freq": [
+        "TDS"
+      ],
+      "med_dur": [
+        "3 days"
+      ],
+      "followDays": 3
+    }
+  },
+  {
+    "id": "en-allergy-stated",
+    "lang": "en-IN",
+    "say": "sir I have fever and throat pain since two days. any allergy. yes sir I am allergic to penicillin it gave me a rash last year. this is tonsillitis. dolo 650 three times daily after food for three days",
+    "expect": {
+      "diagnosis": "tonsillitis",
+      "meds": [
+        "Tab Paracetamol 650mg"
+      ],
+      "allergies": [
+        "Penicillin"
+      ],
+      "noSymptom": [
+        "rash"
+      ]
+    }
+  },
+  {
+    "id": "en-allergy-none",
+    "lang": "en-IN",
+    "say": "sir I have fever since two days. any allergy. no sir no allergy. this is viral fever. dolo 650 twice daily after food for three days",
+    "expect": {
+      "diagnosis": "viral fever",
+      "allergies": []
+    }
+  },
+  {
+    "id": "hi-allergy-stated",
+    "lang": "hi-IN",
+    "say": "kya hua. sir do din se bukhar hai. koi allergy hai. haan sir mujhe sulfa se allergy hai. yeh viral fever hai. crocin 650 din mein do baar khane ke baad teen din",
+    "expect": {
+      "allergies": [
+        "Sulfa"
+      ]
+    }
+  },
+  {
+    "id": "en-dx-you-have",
+    "lang": "en-IN",
+    "say": "sir I have loose motions since two days. you have gastroenteritis. take ors and plenty of fluids. come back in three days",
+    "expect": {
+      "diagnosis": "gastroenteritis",
+      "followDays": 3
+    }
+  },
+  {
+    "id": "en-dx-suffering-from",
+    "lang": "en-IN",
+    "say": "patient is suffering from migraine. take rest in a dark room. come back in seven days",
+    "expect": {
+      "diagnosis": "migraine",
+      "followDays": 7
+    }
+  },
+  {
+    "id": "en-precautions",
+    "lang": "en-IN",
+    "say": "this is gastritis. avoid cold drinks and do not skip meals. no smoking. pan 40 empty stomach once daily for five days",
+    "expect": {
+      "diagnosis": "gastritis",
+      "meds": [
+        "Tab Pantoprazole 40mg"
+      ],
+      "advice": [
+        "Avoid cold drinks and ice",
+        "Do not skip meals",
+        "Stop smoking"
+      ]
+    }
+  },
+  {
+    "id": "hi-precautions",
+    "lang": "hi-IN",
+    "say": "yeh gastritis hai. thanda paani mat piye. dhoop mein mat jaiye. parhez rakhiye. char din baad dubara aana",
+    "expect": {
+      "diagnosis": "gastritis",
+      "followDays": 4,
+      "advice": [
+        "Avoid cold drinks and ice",
+        "Stay out of the sun",
+        "Follow the diet advised"
+      ]
+    }
+  },
+  {
+    "id": "en-bare-illness-name",
+    "lang": "en-IN",
+    "say": "fever and body ache since three days. typhoid fever. dolo 650 three times daily after food for five days. come back in five days",
+    "expect": {
+      "diagnosis": "Typhoid fever",
+      "meds": [
+        "Tab Paracetamol 650mg"
+      ],
+      "followDays": 5
+    }
+  },
+  {
+    "id": "en-illness-named-last",
+    "lang": "en-IN",
+    "say": "temperature 101 and loose motions since two days. amoxicillin 500 thrice daily after food for five days. acute gastroenteritis. come back in three days",
+    "expect": {
+      "diagnosis": "Acute gastroenteritis",
+      "meds": [
+        "Tab Amoxicillin 500mg"
+      ],
+      "followDays": 3
+    }
+  },
+  {
+    "id": "en-uncommon-symptoms",
+    "lang": "en-IN",
+    "say": "sir I have hiccups since two days and my voice is hoarse. this is acid peptic disease. pan 40 empty stomach once daily for five days",
+    "expect": {
+      "diagnosis": "acid peptic disease",
+      "meds": [
+        "Tab Pantoprazole 40mg"
+      ],
+      "med_when": [
+        "Empty Stomach"
+      ]
+    }
+  },
+  {
+    "id": "hi-no-false-diagnosis",
+    "lang": "hi-IN",
+    "say": "sir pet mein gas bharti hai aur dakar aati hai. pan 40 khali pet ek baar paanch din. char din baad dubara aana",
+    "expect": {
+      "meds": [
+        "Tab Pantoprazole 40mg"
+      ],
+      "med_when": [
+        "Empty Stomach"
+      ],
+      "followDays": 4
+    }
+  },
+  {
+    "id": "hinglish-viral-fever",
+    "lang": "hinglish",
+    "say": "patient ko teen din se fever hai aur body ache bhi. temperature 101.2 hai BP 130 by 80. ye viral fever hai. dolo 650 din mein teen baar khane ke baad teen din. paani zyada piye. teen din baad aana",
+    "expect": {
+      "diagnosis": "viral fever",
+      "v_temp": "101.2",
+      "v_bp": "130/80",
+      "meds": [
+        "Tab Paracetamol 650mg"
+      ],
+      "med_when": [
+        "After Food"
+      ],
+      "med_freq": [
+        "TDS"
+      ],
+      "med_dur": [
+        "3 days"
+      ],
+      "advice": [
+        "Plenty of fluids"
+      ],
+      "followDays": 3
+    }
+  },
+  {
+    "id": "hinglish-diabetes",
+    "lang": "hinglish",
+    "say": "sir ko sugar high chal raha hai. fasting 180 hai. ye type 2 diabetes hai. metformin 500 twice daily khane ke baad thirty days. roz walk kijiye. mithai avoid kariye. pandrah din baad dubara",
+    "expect": {
+      "diagnosis": "type 2 diabetes",
+      "v_sugar": "180",
+      "meds": [
+        "Tab Metformin 500mg"
+      ],
+      "med_freq": [
+        "BD"
+      ],
+      "med_when": [
+        "After Food"
+      ],
+      "followDays": 15
+    }
+  },
+  {
+    "id": "hinglish-gastro",
+    "lang": "hinglish",
+    "say": "do din se loose motion aur vomiting ho rahi hai. ye acute gastroenteritis hai. ORS sachet din mein teen baar teen din. pantoprazole 40 khali pet paanch din. bahar ka khana mat khaiye. kal wapas aana",
+    "expect": {
+      "diagnosis": "Acute gastroenteritis",
+      "meds": [
+        "ORS sachets",
+        "Tab Pantoprazole 40mg"
+      ],
+      "med_when": [
+        "Anytime",
+        "Empty Stomach"
+      ],
+      "advice": [
+        "Avoid outside food"
+      ],
+      "followDays": 1
+    }
+  },
+  {
+    "id": "hinglish-bp-review",
+    "lang": "hinglish",
+    "say": "BP high chal raha hai. BP 152 by 96 hai pulse 84. ye hypertension hai. telma 40 subah khane ke baad thirty days. namak kam kijiye. roz walk kijiye. thirty days baad aana",
+    "expect": {
+      "diagnosis": "hypertension",
+      "v_bp": "152/96",
+      "v_pulse": "84",
+      "meds": [
+        "Tab Telmisartan 40mg"
+      ],
+      "med_freq": [
+        "OD"
+      ],
+      "followDays": 30
+    }
+  }
+]

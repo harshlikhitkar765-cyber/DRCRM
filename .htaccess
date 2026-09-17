@@ -1,0 +1,96 @@
+# ==================================================================
+#  Dr Bakshi Clinic — Apache configuration (Hostinger, cPanel)
+#  ------------------------------------------------------------------
+#  The point of this file is that a change you upload appears
+#  immediately, without anyone clearing a cache by hand.
+#
+#  The app already stamps every stylesheet and script with the file's
+#  modification time (app.css?v=1789202333). These rules make the
+#  browser and the host's cache respect that:
+#
+#     - a stamped asset  -> cache hard, it can never go stale because
+#                           the URL changes when the file changes
+#     - an HTML page     -> never cache, so the page always arrives
+#                           with the newest stamps in it
+#
+#  Without the second rule the browser can serve yesterday's HTML,
+#  which carries yesterday's stamps, and the whole scheme fails.
+# ==================================================================
+
+# ---------- security ----------
+Options -Indexes
+ServerSignature Off
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    # The microphone is needed for voice recording on this site only.
+    Header always set Permissions-Policy "microphone=(self), camera=(self), geolocation=()"
+</IfModule>
+
+# Never serve the things that are not meant to be public.
+<FilesMatch "\.(md|sql|sqlite|log|bak|ini)$">
+    Require all denied
+</FilesMatch>
+<FilesMatch "^(composer\.(json|lock)|\.env|\.git.*)$">
+    Require all denied
+</FilesMatch>
+
+# ---------- caching ----------
+<IfModule mod_headers.c>
+
+    # 1. HTML must always be fresh. It contains the version stamps, so a
+    #    cached page would point at old CSS even after a good upload.
+    <FilesMatch "\.php$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate, max-age=0"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+    </FilesMatch>
+
+    # 2. A stamped asset is safe to cache for a long time: when the file
+    #    changes the stamp changes, so the browser asks for a new URL.
+    <FilesMatch "\.(css|js)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+
+    # 3. Uploaded images change rarely but are served through a script,
+    #    so keep them modest.
+    <FilesMatch "\.(png|jpe?g|gif|webp|svg|ico)$">
+        Header set Cache-Control "public, max-age=604800"
+    </FilesMatch>
+
+</IfModule>
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css                "access plus 1 year"
+    ExpiresByType application/javascript  "access plus 1 year"
+    ExpiresByType image/png               "access plus 1 week"
+    ExpiresByType image/jpeg              "access plus 1 week"
+    ExpiresByType image/svg+xml           "access plus 1 week"
+    ExpiresDefault                        "access plus 0 seconds"
+</IfModule>
+
+# ---------- compression ----------
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/plain
+    AddOutputFilterByType DEFLATE application/javascript application/json
+    AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>
+
+# ---------- Hostinger's own edge cache ----------
+# LiteSpeed sits in front of PHP on Hostinger. Tell it not to hold pages,
+# or a stale page will be served no matter what the browser does.
+<IfModule LiteSpeed>
+    CacheLookup off
+</IfModule>
+<IfModule mod_headers.c>
+    <FilesMatch "\.php$">
+        Header set X-LiteSpeed-Cache-Control "no-cache"
+    </FilesMatch>
+</IfModule>
+
+# ---------- friendly errors ----------
+ErrorDocument 403 /index.php
+ErrorDocument 404 /index.php
