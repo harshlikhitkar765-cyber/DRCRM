@@ -38,7 +38,16 @@ function auto_mark(string $job): void {
 
 /* Expired phone-pad sessions pile up forever otherwise. */
 function auto_clean_pads(): int {
-    $n = db()->exec("DELETE FROM pad_sessions WHERE expires_at < NOW() - INTERVAL 1 DAY");
+    $pdo = db();
+    /* A phone may upload a page and never be accepted at the desk. Remove the
+       expired session and that otherwise-orphaned private image together. */
+    $q = $pdo->query("SELECT result_file FROM pad_sessions
+                      WHERE expires_at < NOW() - INTERVAL 1 DAY AND result_file IS NOT NULL");
+    foreach ($q->fetchAll(PDO::FETCH_COLUMN) as $file) {
+        $path = __DIR__.'/../data/rx/'.basename((string)$file);
+        if (is_file($path)) @unlink($path);
+    }
+    $n = $pdo->exec("DELETE FROM pad_sessions WHERE expires_at < NOW() - INTERVAL 1 DAY");
     return (int)$n;
 }
 
@@ -46,7 +55,8 @@ function auto_clean_pads(): int {
    Left alone, the queue count is wrong every morning. */
 function auto_close_stale(): int {
     $n = db()->exec("UPDATE appointments SET status='Cancelled'
-                     WHERE status='Waiting' AND appt_date < CURDATE() - INTERVAL 1 DAY");
+                     WHERE status IN ('Waiting','Scheduled','In Consult')
+                       AND appt_date < CURDATE() - INTERVAL 1 DAY");
     return (int)$n;
 }
 

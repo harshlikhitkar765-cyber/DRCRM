@@ -3,7 +3,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/inc/boot.php';
 
-require_login();
+require_doctor();
 
 $pdo = db();
 $tab = $_GET['tab'] ?? 'clinic';

@@ -11,18 +11,15 @@ if(!$pt){ http_response_code(404); exit('Patient not found'); }
 
 if ($_SERVER['REQUEST_METHOD']==='POST') {
     csrf_check();
-    $data=(string)($_POST['img']??'');
-    if(!preg_match('~^data:image/(png|jpeg);base64,~',$data,$m)){
-        $_SESSION['err']='No photo captured.'; redirect('documents.php?patient='.$pid); }
-    $bin=base64_decode(substr($data,strpos($data,',')+1),true);
-    $dir=__DIR__.'/data/docs'; if(!is_dir($dir)) mkdir($dir,0775,true);
-    $ext=($m[1]==='jpeg')?'jpg':'png';
-    $fn='doc_'.$pid.'_'.date('Ymd_His').'.'.$ext;
-    file_put_contents($dir.'/'.$fn,$bin);
-    $pdo->prepare('INSERT INTO documents(patient_id,kind,title,file,doc_date) VALUES(?,?,?,?,?)')
-        ->execute([$pid,(string)$_POST['kind'],pf('title'),$fn,dnull((string)$_POST['doc_date'])]);
-    audit('doc_add','patient',$pid,(string)$_POST['kind']);
-    $_SESSION['ok']='Report saved to the chart.';
+    try {
+        $fn = store_image_data_url((string)($_POST['img'] ?? ''), __DIR__.'/data/docs', 'doc_'.$pid);
+        $pdo->prepare('INSERT INTO documents(patient_id,kind,title,file,doc_date) VALUES(?,?,?,?,?)')
+            ->execute([$pid,pf('kind'),pf('title'),$fn,dnull((string)$_POST['doc_date'])]);
+        audit('doc_add','patient',$pid,pf('kind'));
+        $_SESSION['ok']='Report saved to the chart.';
+    } catch (Throwable $e) {
+        $_SESSION['err'] = $e->getMessage();
+    }
     redirect('documents.php?patient='.$pid);
 }
 $docs=$pdo->prepare('SELECT * FROM documents WHERE patient_id=? ORDER BY id DESC');

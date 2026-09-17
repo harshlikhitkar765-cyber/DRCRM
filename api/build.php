@@ -6,7 +6,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../inc/config.php';
 require_once __DIR__ . '/../inc/sync.php';
 
-session_start();
+app_session_start();
 header('Content-Type: application/json; charset=utf-8');
 /* This response must never be cached — it is the thing detecting staleness. */
 header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');

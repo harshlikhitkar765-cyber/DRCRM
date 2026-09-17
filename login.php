@@ -5,7 +5,7 @@ require_once __DIR__.'/inc/db.php';
 require_once __DIR__.'/inc/refdata.php';
 require_once __DIR__.'/inc/auth.php';
 require_once __DIR__.'/inc/icons.php';   /* shared ico(), no login needed */
-session_start();
+app_session_start();
 
 
 /* Real counts from the clinic's own data, so the panel is never a lie. */
@@ -25,16 +25,19 @@ const DEMO_ACCOUNTS = [
     'doctor'    => ['drbakshi',  'clinic@2026'],
     'reception' => ['reception', 'front@2026'],
 ];
+$needsSetup = auth_needs_setup();
 if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['demo'])) {
     csrf_check();
     $which = (string)$_POST['demo'];
-    if (isset(DEMO_ACCOUNTS[$which])) {
+    if (!APP_DEMO_MODE) {
+        $err = 'Demo access is disabled for this clinic.';
+    } elseif (isset(DEMO_ACCOUNTS[$which])) {
         [$du, $dp] = DEMO_ACCOUNTS[$which];
         $acct = auth_login($du, $dp);
         if ($acct) {
             session_regenerate_id(true);
             $_SESSION['user'] = $acct;
-            $_SESSION['demo'] = true;          /* so the app can say so */
+            $_SESSION['demo'] = true;
             audit('login_demo', 'user', 0, $du);
             redirect('queue.php');
         }
@@ -42,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['demo'])) {
     }
 }
 
-if ($_SERVER['REQUEST_METHOD']==='POST') {
+if ($_SERVER['REQUEST_METHOD']==='POST' && !isset($_POST['demo'])) {
     csrf_check();
     $u=trim((string)($_POST['username']??'')); $p=(string)($_POST['password']??'');
     $last=$u;
@@ -50,11 +53,14 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     if ($acct) {
         session_regenerate_id(true);
         $_SESSION['user'] = $acct;
+        unset($_SESSION['demo']);
         audit('login', 'user', 0, $acct['username']);
         redirect('queue.php');
     }
     audit('login_failed', 'user', 0, $u);
-    $err='Invalid username or password.';
+    $err = $needsSetup
+        ? 'This new clinic has no initial user yet. Add INITIAL_DOCTOR_USERNAME and INITIAL_DOCTOR_PASSWORD to data/config.local.php, then reload this page.'
+        : 'Invalid username or password.';
 }
 ?><!doctype html>
 <html lang="en"><head>
@@ -136,26 +142,31 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
         <button class="b b-main auth-go">Sign in</button>
       </form>
 
-      <div class="auth-or"><span>or try it without an account</span></div>
+      <?php if (APP_DEMO_MODE): ?>
+        <div class="auth-or"><span>or try the private demo</span></div>
 
-      <form method="post" class="auth-demos">
-        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-        <button class="auth-demo-b" name="demo" value="doctor">
-          <span class="adb-ico"><?= ico('<circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>') ?></span>
-          <span class="adb-t"><b>Enter as the doctor</b><i>Full access — prescribe, record, settings</i></span>
-          <span class="adb-go">→</span>
-        </button>
-        <button class="auth-demo-b" name="demo" value="reception">
-          <span class="adb-ico"><?= ico('<rect x="3.2" y="9" width="17.6" height="11" rx="2"/><path d="M7.6 9V6.6a4.4 4.4 0 0 1 8.8 0V9"/>') ?></span>
-          <span class="adb-t"><b>Enter as the front desk</b><i>Queue, patients, billing</i></span>
-          <span class="adb-go">→</span>
-        </button>
-      </form>
+        <form method="post" class="auth-demos">
+          <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+          <button class="auth-demo-b" name="demo" value="doctor">
+            <span class="adb-ico"><?= ico('<circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>') ?></span>
+            <span class="adb-t"><b>Enter as the doctor</b><i>Full access — prescribe, record, settings</i></span>
+            <span class="adb-go">→</span>
+          </button>
+          <button class="auth-demo-b" name="demo" value="reception">
+            <span class="adb-ico"><?= ico('<rect x="3.2" y="9" width="17.6" height="11" rx="2"/><path d="M7.6 9V6.6a4.4 4.4 0 0 1 8.8 0V9"/>') ?></span>
+            <span class="adb-t"><b>Enter as the front desk</b><i>Queue, patients, billing</i></span>
+            <span class="adb-go">→</span>
+          </button>
+        </form>
 
-      <p class="auth-note">
-        Demo signs in as <code>drbakshi</code> / <code>reception</code> with the
-        sample clinic data. <b>Change both passwords before real patient data goes in.</b>
-      </p>
+        <p class="auth-note">
+          This private demo uses sample clinic data only. <b>Turn off demo mode before real patient data goes in.</b>
+        </p>
+      <?php elseif ($needsSetup): ?>
+        <p class="auth-note"><b>Initial setup required.</b> Copy
+          <code>data/config.local.php.example</code> to <code>data/config.local.php</code>,
+          set the database and initial doctor credentials, then reload this page.</p>
+      <?php endif; ?>
     </div>
   </main>
 </div>

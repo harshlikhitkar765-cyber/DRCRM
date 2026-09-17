@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/inc/boot.php';
 
-session_start(); if(empty($_SESSION['user'])) redirect('login.php');
+app_session_start(); if(empty($_SESSION['user'])) redirect('login.php');
 $pdo=db(); $id=gi('rx');
 $q=$pdo->prepare('SELECT r.*,p.name,p.age,p.sex,p.abha,p.phone,p.allergies
                   FROM prescriptions r JOIN patients p ON p.id=r.patient_id WHERE r.id=?');

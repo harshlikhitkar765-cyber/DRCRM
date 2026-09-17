@@ -5,14 +5,24 @@ require_once __DIR__.'/inc/boot.php';
 $pdo=db();
 if($_SERVER['REQUEST_METHOD']==='POST'){
   csrf_check();
+  $name = pf('name'); $phone = pf('phone'); $age = pint('age');
+  $sex = pf('sex'); $care = pf('care'); $risk = pf('risk'); $lang = pf('lang');
+  if ($name === '' || mb_strlen($name) > 120 || !wa_valid_number($phone)
+      || $age < 0 || $age > 120 || !in_array($sex, ['F','M','Other'], true)
+      || !in_array($care, ['OPD','Home Care','Home ICU'], true)
+      || !in_array($risk, ['Low','Medium','High'], true)
+      || !in_array($lang, picklist('lang',['English','Hindi','Marathi']), true)) {
+    $_SESSION['err'] = 'Enter a name, a valid WhatsApp phone number, age and the listed options.';
+    redirect('patient_new.php');
+  }
   $st=$pdo->prepare('INSERT INTO patients(name,age,sex,phone,abha,city,conditions,allergies,care,risk,lang)
                      VALUES(?,?,?,?,?,?,?,?,?,?,?)');
-  $st->execute([pf('name'),(int)$_POST['age'],(string)$_POST['sex'],
-    pf('phone'),pf('abha'),pf('city'),
-    pf('conditions'),pf('allergies'),
-    (string)$_POST['care'],(string)$_POST['risk'],(string)$_POST['lang']]);
+  $st->execute([$name,$age,$sex,$phone,pf('abha'),pf('city'),
+    pf('conditions'),pf('allergies'),$care,$risk,$lang]);
+  $newPatientId = (int)$pdo->lastInsertId();
+  audit('patient_add','patient',$newPatientId);
   $_SESSION['ok']='Patient added.';
-  redirect('patient.php?id='.$pdo->lastInsertId());
+  redirect('patient.php?id='.$newPatientId);
 }
 head('New Patient');
 ?>

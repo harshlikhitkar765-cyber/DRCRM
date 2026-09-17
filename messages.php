@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/inc/boot.php';
-   require_login();
+   require_doctor();
 $pdo=db();
 $rows=$pdo->query('SELECT w.*,p.name FROM wa_messages w JOIN patients p ON p.id=w.patient_id
                    ORDER BY w.id DESC LIMIT 100')->fetchAll();

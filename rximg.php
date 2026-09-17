@@ -3,7 +3,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/inc/db.php';
 require_once __DIR__.'/inc/config.php';
-session_start();
+app_session_start();
 $id=(int)($_GET['rx']??0);
 $tok=(string)($_GET['t']??'');
 $pdo=db();

@@ -1,7 +1,7 @@
 -- ==================================================================
 --  Dr Bakshi Clinic - complete database schema
---  MySQL / MariaDB  .  utf8mb4  .  InnoDB  .  21 tables
---  Generated 11 Sep 2026 19:29
+--  MySQL / MariaDB  .  utf8mb4  .  InnoDB  .  22 tables
+--  Generated 17 Sep 2026
 --
 --  Load into an empty database:
 --     mysql -u USER -p DBNAME < schema.sql
@@ -54,6 +54,7 @@ CREATE TABLE `appointments` (
   `status` varchar(20) DEFAULT 'Waiting',
   `token` varchar(20) DEFAULT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_appt_day_token` (`appt_date`,`token`),
   KEY `appt_date` (`appt_date`),
   KEY `patient_id` (`patient_id`),
   CONSTRAINT `fk_appt_pt` FOREIGN KEY (`patient_id`) REFERENCES `patients` (`id`) ON DELETE CASCADE
@@ -206,9 +207,11 @@ CREATE TABLE `wa_replies` (
   `phone` varchar(30) DEFAULT NULL,
   `body` text DEFAULT NULL,
   `intent` varchar(30) DEFAULT NULL,
+  `message_id` varchar(100) DEFAULT NULL,
   `handled` tinyint(4) DEFAULT 0,
   `received_at` datetime DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_reply_message` (`message_id`),
   KEY `patient_id` (`patient_id`),
   CONSTRAINT `fk_rep_pt` FOREIGN KEY (`patient_id`) REFERENCES `patients` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -311,6 +314,28 @@ CREATE TABLE `consult_notes` (
   CONSTRAINT `fk_note_pt` FOREIGN KEY (`patient_id`) REFERENCES `patients` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_note_rx` FOREIGN KEY (`rx_id`) REFERENCES `prescriptions` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------------
+-- vitals
+-- ------------------------------------------------------------------
+DROP TABLE IF EXISTS `vitals`;
+CREATE TABLE `vitals` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `patient_id` int(11) NOT NULL,
+  `rx_id` int(11) DEFAULT NULL,
+  `taken_on` date NOT NULL,
+  `kind` varchar(16) NOT NULL,
+  `val` varchar(24) NOT NULL,
+  `num` decimal(6,2) DEFAULT NULL,
+  `num2` decimal(6,2) DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `patient_kind_taken` (`patient_id`,`kind`,`taken_on`),
+  KEY `kind_num` (`kind`,`num`),
+  KEY `fk_vit_rx` (`rx_id`),
+  CONSTRAINT `fk_vit_pt` FOREIGN KEY (`patient_id`) REFERENCES `patients` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_vit_rx` FOREIGN KEY (`rx_id`) REFERENCES `prescriptions` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------------
 -- rx_sets

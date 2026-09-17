@@ -5,14 +5,14 @@
 declare(strict_types=1);
 require_once __DIR__.'/inc/boot.php';
 
-require_login();
+require_doctor();
 
 $pdo   = db();
 $today = date('Y-m-d');
 
 $rows = $pdo->query("
   SELECT r.id AS rx_id, r.follow_up, r.diagnosis, r.rx_date,
-         p.id AS pid, p.name, p.phone, p.age, p.sex, p.lang, p.care, p.risk
+         p.id AS pid, p.name, p.phone, p.age, p.sex, p.lang, p.care, p.risk, p.wa_consent
   FROM prescriptions r
   JOIN patients p ON p.id = r.patient_id
   WHERE r.follow_up IS NOT NULL AND r.follow_up != ''
@@ -100,9 +100,15 @@ function recall_table(string $title, string $sub, array $list, string $tone): vo
           <?php endif; ?></td>
         <td><span class="pill <?= $r['care']==='Home ICU'?'p-red':($r['care']==='Home Care'?'p-v':'p-gray') ?>"><?= e($r['care']) ?></span></td>
         <td style="text-align:right;white-space:nowrap">
-          <a class="btn wa sm" target="_blank" rel="noopener"
-             href="<?= e(wa_link((string)$r['phone'], recall_msg($r))) ?>">Remind on WhatsApp</a>
-          <a class="btn ghost sm" href="appointment_new.php">Book</a></td>
+          <?php $reminderLink = wa_link((string)$r['phone'], recall_msg($r)); ?>
+          <?php if ((int)($r['wa_consent'] ?? 0) !== 1): ?>
+            <a class="btn ghost sm" href="patient.php?id=<?= (int)$r['pid'] ?>">Consent required</a>
+          <?php elseif ($reminderLink !== ''): ?>
+            <a class="btn wa sm" target="_blank" rel="noopener" href="<?= e($reminderLink) ?>">Remind on WhatsApp</a>
+          <?php else: ?>
+            <a class="btn ghost sm" href="patient.php?id=<?= (int)$r['pid'] ?>">Correct phone number</a>
+          <?php endif; ?>
+          <a class="btn ghost sm" href="appointment_new.php?patient=<?= (int)$r['pid'] ?>">Book</a></td>
       </tr>
     <?php endforeach; ?>
     </tbody></table>

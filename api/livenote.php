@@ -18,15 +18,19 @@ declare(strict_types=1);
 require_once __DIR__.'/../inc/db.php';
 require_once __DIR__.'/../inc/auth.php';
 
-session_start();
+app_session_start();
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); exit('{"error":"method"}'); }
 if (empty($_SESSION['user'])) { http_response_code(401); exit('{"error":"login"}'); }
+if (!is_doctor()) { http_response_code(403); exit('{"error":"doctor"}'); }
 
-/* Same CSRF token as the rest of the app. */
+/* Same CSRF token as the rest of the app. An absent session token and an
+   absent posted token must not compare equal. */
 $tok = (string)($_POST['csrf'] ?? '');
-if (!hash_equals($_SESSION['csrf'] ?? '', $tok)) {
+$sess = (string)($_SESSION['csrf'] ?? '');
+if ($sess === '' || $tok === '' || !hash_equals($sess, $tok)) {
     http_response_code(419); exit('{"error":"csrf"}');
 }
 
@@ -46,6 +50,14 @@ $secs  = max(0, min(86400, (int)($_POST['secs'] ?? 0)));
 $start = dnull((string)($_POST['started_at'] ?? ''));
 
 if ($pid <= 0) { http_response_code(400); exit('{"error":"patient"}'); }
+$patient = $pdo->prepare('SELECT id FROM patients WHERE id=?');
+$patient->execute([$pid]);
+if (!$patient->fetchColumn()) { http_response_code(404); exit('{"error":"patient"}'); }
+if ($appt > 0) {
+    $appointment = $pdo->prepare('SELECT id FROM appointments WHERE id=? AND patient_id=?');
+    $appointment->execute([$appt, $pid]);
+    if (!$appointment->fetchColumn()) { http_response_code(403); exit('{"error":"appointment"}'); }
+}
 
 /* Guard against a runaway transcript filling the disk. MEDIUMTEXT holds
    16 MB; a two-hour consultation is well under 100 KB. */

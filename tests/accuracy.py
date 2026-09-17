@@ -155,7 +155,20 @@ def main():
         pg.add_init_script(FAKE)
         pg.goto(BASE + "login.php")
         pg.wait_for_timeout(300)
-        pg.click('.auth-demo-b[value="doctor"]')
+        demo = pg.locator('.auth-demo-b[value="doctor"]')
+        if demo.count():
+            demo.click()
+        else:
+            user = os.environ.get("CLINIC_TEST_USER", "")
+            password = os.environ.get("CLINIC_TEST_PASSWORD", "")
+            if not user or not password:
+                raise RuntimeError(
+                    "Demo mode is off. Set CLINIC_TEST_USER and CLINIC_TEST_PASSWORD "
+                    "for a doctor account, or run a private database with DEMO_MODE=1."
+                )
+            pg.fill('#u', user)
+            pg.fill('#p', password)
+            pg.click('.auth-go')
         pg.wait_for_load_state()
 
         print(f"{'case':22} {'checks':>7} {'passed':>7}")

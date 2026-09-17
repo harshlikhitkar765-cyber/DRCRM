@@ -31,7 +31,7 @@ head('Patients');
       <td><span class="pill <?= $r['risk']==='High'?'p-red':($r['risk']==='Medium'?'p-amber':'p-green') ?>"><?= e($r['risk']) ?></span></td>
       <td style="font-size:12px"><?= e($r['lang']) ?></td>
       <td style="text-align:right;white-space:nowrap">
-        <a class="btn sm" href="consult.php?patient=<?= (int)$r['id'] ?>">Consult</a>
+        <?php if (is_doctor()): ?><a class="btn sm" href="consult.php?patient=<?= (int)$r['id'] ?>">Consult</a><?php endif; ?>
         <a class="btn ghost sm" href="patient.php?id=<?= (int)$r['id'] ?>">Chart</a></td>
     </tr>
   <?php endforeach; ?>

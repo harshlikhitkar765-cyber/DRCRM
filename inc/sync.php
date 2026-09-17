@@ -21,7 +21,11 @@ function sync_assets(): array {
         'assets/voice.js'       =>  3000,
         'assets/speakers.js'    =>  3000,
         'assets/summary.js'     =>  3000,
+        'assets/livedock.js'    =>  3000,
+        'assets/miccheck.js'    =>  2000,
+        'assets/audiorec.js'    =>  2000,
         'assets/responsive.js'  =>  1000,
+        'assets/sync.js'        =>  1000,
     ];
 }
 

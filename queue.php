@@ -2,14 +2,35 @@
 declare(strict_types=1);
 require_once __DIR__.'/inc/boot.php';
 
-/* Housekeeping runs itself on the first queue load of the day: expired
-   pad sessions cleared, yesterday's untouched appointments closed. No
-   cron needed, though one can still be used. */
-$autoDid = auto_run();
-
 require_login();
 
+/* Housekeeping runs itself on the first authenticated queue load of the day:
+   expired pad sessions are cleared and yesterday's untouched appointments are
+   closed. */
+$autoDid = auto_run();
 $pdo = db();
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_check();
+    $appointmentId = pint('appointment_id');
+    $action = pf('do');
+    $returnDate = pf('date', date('Y-m-d'));
+    if ($appointmentId > 0 && in_array($action, ['cancel', 'restore'], true)) {
+        $next = $action === 'cancel' ? 'Cancelled' : 'Waiting';
+        $allowed = $action === 'cancel' ? ['Waiting', 'Scheduled', 'In Consult'] : ['Cancelled'];
+        $marks = implode(',', array_fill(0, count($allowed), '?'));
+        $st = $pdo->prepare("UPDATE appointments SET status=? WHERE id=? AND status IN ($marks)");
+        $st->execute(array_merge([$next, $appointmentId], $allowed));
+        if ($st->rowCount()) {
+            audit('appointment_'.$action, 'appointment', $appointmentId);
+            $_SESSION['ok'] = $action === 'cancel' ? 'Appointment cancelled.' : 'Appointment returned to the queue.';
+        } else {
+            $_SESSION['err'] = 'That appointment could not be updated.';
+        }
+    }
+    redirect('queue.php?date='.urlencode($returnDate));
+}
+
 $date = $_GET['date'] ?? date('Y-m-d');
 $tab  = $_GET['tab']  ?? 'Queue';
 $qs   = trim((string)($_GET['q'] ?? ''));
@@ -96,10 +117,33 @@ head('OPD Queue');
             <a class="btn ghost sm" href="patient.php?id=<?= (int)$r['patient_id'] ?>">Chart</a>
           <?php elseif ($r['status']==='Cancelled'): ?>
             <span class="pill p-gray">Cancelled</span>
-          <?php else: ?>
+            <form method="post" style="display:inline">
+              <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+              <input type="hidden" name="do" value="restore">
+              <input type="hidden" name="appointment_id" value="<?= (int)$r['id'] ?>">
+              <input type="hidden" name="date" value="<?= e($date) ?>">
+              <button class="btn ghost sm">Restore</button>
+            </form>
+          <?php elseif (is_doctor()): ?>
             <a class="btn sm" href="consult.php?appt=<?= (int)$r['id'] ?>">Consult</a>
             <a class="btn ghost sm" href="padlink.php?appt=<?= (int)$r['id'] ?>" title="Write on your phone or tablet">📱 Pad</a>
             <a class="btn ghost sm" href="consult.php?appt=<?= (int)$r['id'] ?>&prev=1" title="Repeat the last prescription">⟲ Repeat</a>
+            <form method="post" style="display:inline" onsubmit="return confirm('Cancel this appointment?')">
+              <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+              <input type="hidden" name="do" value="cancel">
+              <input type="hidden" name="appointment_id" value="<?= (int)$r['id'] ?>">
+              <input type="hidden" name="date" value="<?= e($date) ?>">
+              <button class="btn ghost sm">Cancel</button>
+            </form>
+          <?php else: ?>
+            <a class="btn ghost sm" href="patient.php?id=<?= (int)$r['patient_id'] ?>">Chart</a>
+            <form method="post" style="display:inline" onsubmit="return confirm('Cancel this appointment?')">
+              <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+              <input type="hidden" name="do" value="cancel">
+              <input type="hidden" name="appointment_id" value="<?= (int)$r['id'] ?>">
+              <input type="hidden" name="date" value="<?= e($date) ?>">
+              <button class="btn ghost sm">Cancel</button>
+            </form>
           <?php endif; ?>
         </td>
       </tr>

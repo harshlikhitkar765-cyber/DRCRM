@@ -5,29 +5,31 @@ Dr. Raja Bakshi, MBBS MD (General Medicine) · M.P. Nagar, Bhopal · +91 97551 0
 
 ## Run
 
-    php -S 0.0.0.0:3000 -t /home/user/drbakshi-php
-
 Requires PHP 8+ with **`pdo_mysql`**, `curl`, `mbstring`, `gd`, `zip`.
-No composer, no build step.
+No Composer or build step is needed.
 
-**Logins:** `drbakshi` / `clinic@2026` (doctor) · `reception` / `front@2026` (staff)
+1. Create a MySQL/MariaDB database and user.
+2. Copy `data/config.local.php.example` to `data/config.local.php` and set the
+   database values plus `INITIAL_DOCTOR_USERNAME` / `INITIAL_DOCTOR_PASSWORD`.
+   Set `APP_URL` to the canonical public HTTPS address if using Smart Pad links
+   or handwritten/scan image links. That private file is ignored by Git and
+   denied from the web.
+3. Start the app:
+
+   ```bash
+   php -S 0.0.0.0:3000 -t /home/user/DRCRM
+   ```
+
+The first request creates the schema and your configured initial account.
+For a **private local demo only**, set `DEMO_MODE` to `1` in the local config;
+then the sample accounts are `drbakshi` / `clinic@2026` and `reception` /
+`front@2026`. Never enable demo mode on a public site or with real patient data.
 
 ## Database — MySQL / MariaDB
 
-The app runs on a **MySQL/MariaDB server**. There is no database file.
-
-Put your four connection values in `inc/config.php`:
-
-```php
-const DB_HOST = 'localhost';
-const DB_PORT = 3306;
-const DB_NAME = 'u123456_clinic';
-const DB_USER = 'u123456_druser';
-const DB_PASS = 'your-password';
-```
-
-On the first page load the app creates all 16 tables and seeds the demo data
-itself. Full setup, migration and troubleshooting: **`DATABASE.md`**.
+The app runs on a **MySQL/MariaDB server**. There is no database file and no
+credential is stored in the repository. Full setup, migration and
+troubleshooting: **`DATABASE.md`**.
 
 To reset the demo, drop and recreate the database:
 
@@ -53,10 +55,14 @@ To reset the demo, drop and recreate the database:
    Placeholders: `{{patient}} {{diagnosis}} {{vitals}} {{medicines}} {{labs}} {{advice}}
    {{followup}} {{clinic}} {{doctor}} {{qual}} {{phone}} {{address}} {{hours}} {{date}}`.
    Empty sections (heading included) are stripped automatically.
-3. Delivery driver — `WA['driver']` in `inc/config.php`:
+3. Delivery driver — set `WA_DRIVER` in `data/config.local.php` (or `DRCRM_WA_DRIVER`):
    * **`link`** (default): builds `https://wa.me/<number>?text=<message>`. Free, no approval,
      a human presses send. Works today.
-   * **`cloud`**: cURL POST to Meta WhatsApp Business Cloud API. Fill `phone_id` + `token`.
+   * **`cloud`**: cURL POST to Meta WhatsApp Business Cloud API. Set `WA_PHONE_ID` + `WA_TOKEN`.
+
+Prescription sends are server-blocked unless the patient has recorded WhatsApp
+consent. For Cloud API inbound messages, also configure `WA_APP_SECRET` and
+`WA_VERIFY_TOKEN`; unsigned webhook requests are rejected.
 
 ## Going live with the Cloud API (honest notes)
 * Needs a verified Meta business + WhatsApp Business Account.
@@ -64,9 +70,10 @@ To reset the demo, drop and recreate the database:
   delivers inside the 24-hour customer service window.
 * Utility messages cost roughly ₹0.12–0.15 each in India.
 * Get DPDP-compliant opt-in before messaging patients.
-* Demo passwords are plaintext constants in `inc/config.php` — replace with a real
-  users table and `password_hash()` before production. Registration number
-  `MPMC-2009-14872` is a placeholder.
+* Configure the initial doctor account through `data/config.local.php` (or
+  `DRCRM_INITIAL_DOCTOR_*` environment variables). Passwords are stored as
+  `password_hash()` values; `DEMO_MODE` is intentionally opt-in. Registration
+  number `MPMC-2009-14872` is a placeholder.
 
 ---
 
@@ -251,9 +258,9 @@ Glycomet → metformin, Zerodol → aceclofenac**. Verified: prescribing
 
 ## Still outstanding — genuinely, before real patients
 1. **HTTPS.** Credentials and patient data still travel in clear text on a LAN.
-2. **The registration number `MPMC-2009-14872` is invented by me** and prints on
-   every prescription. Replace it in `inc/config.php`.
-3. Change both demo passwords.
+2. **The registration number `MPMC-2009-14872` is a placeholder** and prints on
+   every prescription until you replace it in **Settings → Clinic details**.
+3. Use a unique initial doctor password and keep `DEMO_MODE` off in production.
 4. The safety checker is a typo net, not clinical decision support.
 
 ---
@@ -434,8 +441,8 @@ real MySQL/MariaDB server, which is what shared hosting gives you.
 version:
 
 1. Create a database and user in your host's control panel.
-2. Put the four values into `inc/config.php` (`DB_HOST`, `DB_NAME`, `DB_USER`,
-   `DB_PASS`).
+2. Put the four values into the untracked `data/config.local.php` (`DB_HOST`,
+   `DB_NAME`, `DB_USER`, `DB_PASS`).
 3. (Historical) A one-time importer moved the old file's data across. It has
    since been removed — the app has no SQLite dependency at all now.
 
@@ -486,9 +493,10 @@ MySQL and behave exactly as before.
 ### Still true, still worth fixing
 
 Going onto a web host makes the earlier warnings urgent rather than
-theoretical: **turn on HTTPS** (free, one click on most panels) and **change
-both demo passwords** before a real patient's data goes in. The invented
-registration number `MPMC-2009-14872` still prints on every prescription.
+theoretical: **turn on HTTPS** (free, one click on most panels), use a unique
+initial doctor password, and leave `DEMO_MODE` off before a real patient's data
+goes in. The placeholder registration number `MPMC-2009-14872` must be replaced
+in Settings before issuing prescriptions.
 
 ---
 
@@ -1172,7 +1180,7 @@ reference tables, plus a **Settings** page to edit them all.
 Five tabs: **Clinic details · Dropdown lists · Brand names · Advice lines ·
 Where data lives**.
 
-The last tab is an inventory of all 21 tables with live row counts and a
+The last tab is an inventory of all 22 tables with live row counts and a
 plain-English description of what each one holds — so you can see exactly
 where your clinic's information is kept.
 
@@ -1211,13 +1219,13 @@ re-tested unchanged.
 
 ---
 
-## v15 — the SQL schema, exported and verified
+## v15 — SQL schema reference
 
 Two new files describing the database:
 
 | File | What it is |
 |---|---|
-| `schema.sql` | The complete `CREATE TABLE` script for all 21 tables |
+| `schema.sql` | The complete `CREATE TABLE` script for all 22 tables |
 | `TABLES.md` | Readable reference: every table, every column, every foreign key |
 
 ### schema.sql
@@ -1231,10 +1239,10 @@ mysql -u USER -p DBNAME < schema.sql
 ```
 
 **Verified, not assumed:** loaded into an empty database it produced all
-21 tables, 12 foreign keys and a single consistent `utf8mb4_unicode_ci`
-collation. I then pointed the app at that schema-only database and it
-connected, auto-seeded its 45 dropdown options and 102 brand names, and read
-the clinic details back correctly.
+22 tables, 14 foreign keys and a single consistent `utf8mb4_unicode_ci`
+collation. A schema-only database receives the required reference lists,
+templates and settings at first connection; clinical sample records are added
+only when explicit demo mode is enabled.
 
 Tables are written parents-first so the foreign keys can be created in order.
 

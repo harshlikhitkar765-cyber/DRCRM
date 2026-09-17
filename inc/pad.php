@@ -36,18 +36,22 @@ function pad_get(string $token): ?array {
     return $s;
 }
 
-function pad_complete(string $token, string $file, string $kind): void {
-    db()->prepare('UPDATE pad_sessions SET status="done", result_file=?, result_kind=? WHERE token=?')
-        ->execute([$file, $kind, $token]);
+/* Complete only a current, unused pad session. This single conditional update
+   closes a race where two phone submissions could overwrite one another. */
+function pad_complete(string $token, string $file, string $kind): bool {
+    $st = db()->prepare("UPDATE pad_sessions
+                         SET status='done', result_file=?, result_kind=?
+                         WHERE token=? AND status='waiting' AND expires_at >= NOW()");
+    $st->execute([$file, $kind, $token]);
+    return $st->rowCount() === 1;
 }
 
-/* Absolute URL the QR encodes. Must be reachable from the phone, so we use the
-   LAN IP the desk browser is talking to rather than "localhost". */
+/* Absolute URL the QR encodes. The configured canonical URL is deliberately
+   used instead of HTTP_HOST, which can be forged by a hostile request. */
 function pad_url(string $token): string {
-    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-    $host   = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    $dir    = rtrim(str_replace('\\','/',dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
-    return $scheme.'://'.$host.$dir.'/pad.php?t='.$token;
+    $base = public_app_url();
+    if ($base === '') throw new RuntimeException('Set APP_URL in data/config.local.php before creating a Smart Pad link.');
+    return $base.'/pad.php?t='.rawurlencode($token);
 }
 
 /* ---------------------------------------------------------------

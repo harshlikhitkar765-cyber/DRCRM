@@ -1,6 +1,6 @@
 # Database tables
 
-The clinic runs on **MySQL / MariaDB**, `utf8mb4`, InnoDB. **21 tables.**
+The clinic runs on **MySQL / MariaDB**, `utf8mb4`, InnoDB. **22 tables.**
 
 The app creates all of them by itself on first run, so you do not
 normally need to do anything. `schema.sql` in this folder is the full
@@ -9,49 +9,53 @@ the project to another developer.
 
 ## Patients and visits
 
-| Table | Rows now | Holds |
+A normal production install starts without clinical records. The optional
+private demo mode adds sample records only for training.
+
+| Table | Fresh production state | Holds |
 |---|---|---|
-| `patients` | 9 | Patient register - name, age, phone, ABHA, conditions, allergies, consent |
-| `appointments` | 7 | OPD queue - date, slot, visit type, status, token |
-| `prescriptions` | 1 | Every prescription issued - diagnosis, vitals, medicines, labs, advice |
-| `consult_notes` | 0 | Recorded consultations - transcript, speaker turns, summary, timing |
+| `patients` | empty | Patient register - name, age, phone, ABHA, conditions, allergies, consent |
+| `appointments` | empty | OPD queue - date, slot, visit type, status, token |
+| `prescriptions` | empty | Every prescription issued - diagnosis, vitals, medicines, labs, advice |
+| `consult_notes` | empty | Recorded consultations - transcript, speaker turns, summary, timing |
+| `vitals` | empty | Individually searchable temperature, BP, sugar and other readings |
 
 ## Money and files
 
-| Table | Rows now | Holds |
+| Table | Fresh production state | Holds |
 |---|---|---|
-| `payments` | 0 | Billing and day book |
-| `documents` | 0 | Photographed lab reports |
-| `pad_sessions` | 6 | Phone-pad handwriting sessions (expire after 15 min) |
+| `payments` | empty | Billing and day book |
+| `documents` | empty | Photographed lab reports |
+| `pad_sessions` | empty | Phone-pad handwriting sessions (expire after 15 min) |
 
 ## Your own lists
 
-| Table | Rows now | Holds |
+| Table | Fresh production state | Holds |
 |---|---|---|
-| `drugs` | 20 | Your medicine list with default dose/when/frequency |
-| `labs` | 18 | Your test list |
-| `rx_sets` | 0 | Favourite prescription sets |
-| `diagnoses` | 0 | Diagnoses you write often (learns by use) |
-| `advice_lines` | 13 | Standard advice, per language |
-| `brands` | 102 | Indian brand to generic map, for safety checks |
-| `picklists` | 46 | Every dropdown in the app |
+| `drugs` | standard starter list | Your medicine list with default dose/when/frequency |
+| `labs` | standard starter list | Your test list |
+| `rx_sets` | empty | Favourite prescription sets |
+| `diagnoses` | empty | Diagnoses you write often (learns by use) |
+| `advice_lines` | standard starter list | Standard advice, per language |
+| `brands` | standard starter list | Indian brand to generic map, for safety checks |
+| `picklists` | standard starter list | Every dropdown in the app |
 
 ## Messaging
 
-| Table | Rows now | Holds |
+| Table | Fresh production state | Holds |
 |---|---|---|
-| `templates` | 3 | WhatsApp message wording per language |
-| `wa_messages` | 0 | WhatsApp send log |
-| `wa_replies` | 0 | Patient replies received |
+| `templates` | standard starter templates | WhatsApp message wording per language |
+| `wa_messages` | empty | WhatsApp send log |
+| `wa_replies` | empty | Patient replies received |
 
 ## System
 
-| Table | Rows now | Holds |
+| Table | Fresh production state | Holds |
 |---|---|---|
-| `users` | 2 | Logins with hashed passwords |
-| `audit` | 63 | Who did what, and when |
-| `settings` | 12 | Clinic details and preferences |
-| `homecare` | 3 | Home care and Home ICU patients |
+| `users` | configured initial account(s) | Logins with hashed passwords |
+| `audit` | empty | Who did what, and when |
+| `settings` | default clinic settings | Clinic details and preferences |
+| `homecare` | empty | Home care and Home ICU patients |
 
 ## Columns
 
@@ -87,7 +91,7 @@ the project to another developer.
 | `mode` | varchar(30) | default In-clinic |
 | `reason` | text |  |
 | `status` | varchar(20) | default Waiting |
-| `token` | varchar(20) |  |
+| `token` | varchar(20) | unique with `appt_date`; sequential per day and visit mode |
 
 ### `prescriptions`
 
@@ -125,6 +129,20 @@ the project to another developer.
 | `lang` | varchar(20) | default en-IN |
 | `picked` | text |  |
 | `started_at` | datetime |  |
+| `created_at` | datetime | default current_timestamp() |
+
+### `vitals`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | int(11) | primary key, auto_increment |
+| `patient_id` | int(11) | indexed, required; cascade-deleted with patient |
+| `rx_id` | int(11) | optional originating prescription |
+| `taken_on` | date | indexed with patient and kind |
+| `kind` | varchar(16) | `temp`, `bp`, `pulse`, `sugar`, `spo2` or `weight` |
+| `val` | varchar(24) | value as entered, such as `130/80` |
+| `num` | decimal(6,2) | comparable value (temperature or systolic BP) |
+| `num2` | decimal(6,2) | second comparable value (diastolic BP) |
 | `created_at` | datetime | default current_timestamp() |
 
 ### `payments`
@@ -281,6 +299,7 @@ the project to another developer.
 | `phone` | varchar(30) |  |
 | `body` | text |  |
 | `intent` | varchar(30) |  |
+| `message_id` | varchar(100) | unique Meta message ID; prevents duplicate webhook retries |
 | `handled` | tinyint(4) | default 0 |
 | `received_at` | datetime | default current_timestamp() |
 
@@ -335,8 +354,8 @@ the project to another developer.
 ## Foreign keys
 
 Deleting a patient removes their appointments, prescriptions, recorded
-consultations, bills and documents with them, so no orphan records are
-left behind. Verified by test.
+consultations, bills, vitals and documents with them, so no orphan records are
+left behind.
 
 | From | To | On delete |
 |---|---|---|
@@ -349,6 +368,8 @@ left behind. Verified by test.
 | `payments.patient_id` | `patients.id` | CASCADE |
 | `payments.rx_id` | `prescriptions.id` | SET NULL |
 | `prescriptions.patient_id` | `patients.id` | CASCADE |
+| `vitals.patient_id` | `patients.id` | CASCADE |
+| `vitals.rx_id` | `prescriptions.id` | SET NULL |
 | `wa_messages.patient_id` | `patients.id` | CASCADE |
 | `wa_messages.rx_id` | `prescriptions.id` | SET NULL |
 | `wa_replies.patient_id` | `patients.id` | SET NULL |
