@@ -1,0 +1,10 @@
+# Private, installation-specific configuration and generated patient data
+data/config.local.php
+data/secret.key
+data/rx/
+data/docs/
+data/backups/
+
+# Local tooling
+.env
+.DS_Store

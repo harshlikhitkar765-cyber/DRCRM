@@ -34,8 +34,10 @@ head($pt['name']);
   <div><h1><?= e($pt['name']) ?></h1>
     <p><?= (int)$pt['age'] ?><?= e($pt['sex']) ?> · ABHA <?= e($pt['abha']) ?> · <?= e($pt['phone']) ?> · <?= e($pt['city']) ?></p></div>
   <div class="spacer"></div>
-  <a class="btn" href="consult.php?patient=<?= $id ?>">New consultation</a>
-  <a class="btn ghost" href="padlink.php?patient=<?= $id ?>">📱 Smart Pad</a>
+  <?php if (is_doctor()): ?>
+    <a class="btn" href="consult.php?patient=<?= $id ?>">New consultation</a>
+    <a class="btn ghost" href="padlink.php?patient=<?= $id ?>">📱 Smart Pad</a>
+  <?php endif; ?>
   <a class="btn ghost" href="documents.php?patient=<?= $id ?>">🧪 Reports</a>
   <a class="btn ghost" href="patients.php">← All patients</a>
 </div>
@@ -144,7 +146,9 @@ head($pt['name']);
             </details>
           <?php endif; ?>
           <div style="margin-top:9px;display:flex;gap:7px">
-            <a class="btn wa sm" href="send.php?rx=<?= (int)$r['id'] ?>">Send on WhatsApp</a>
+            <?php if (is_doctor()): ?>
+              <a class="btn wa sm" href="send.php?rx=<?= (int)$r['id'] ?>">Send on WhatsApp</a>
+            <?php endif; ?>
             <a class="btn ghost sm" href="print.php?rx=<?= (int)$r['id'] ?>" target="_blank">⎙ Print</a>
           </div>
         </div>

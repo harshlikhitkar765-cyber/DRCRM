@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/inc/db.php';
-session_start();
+app_session_start();
 if(empty($_SESSION['user'])){ http_response_code(403); exit('Forbidden'); }
 $q=db()->prepare('SELECT file FROM documents WHERE id=?'); $q->execute([(int)($_GET['id']??0)]);
 $fn=(string)$q->fetchColumn();

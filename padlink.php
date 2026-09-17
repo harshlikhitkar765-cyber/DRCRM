@@ -4,7 +4,7 @@ declare(strict_types=1);
 require_once __DIR__.'/inc/boot.php';
 require_once __DIR__.'/inc/pad.php';
 
-require_login();
+require_doctor();
 
 $pdo = db();
 $apptId = gi('appt');
@@ -14,9 +14,14 @@ if ($apptId) {
     $a = $pdo->prepare('SELECT * FROM appointments WHERE id=?'); $a->execute([$apptId]);
     $ap = $a->fetch(); if (!$ap) { http_response_code(404); exit('Appointment not found'); }
     $pid = (int)$ap['patient_id'];
+    appointment_start($pdo, $apptId);
 }
 $q = $pdo->prepare('SELECT * FROM patients WHERE id=?'); $q->execute([$pid]); $pt = $q->fetch();
 if (!$pt) { http_response_code(404); exit('Patient not found'); }
+if (public_app_url() === '') {
+    $_SESSION['err'] = 'Set the canonical APP_URL in data/config.local.php before creating a Smart Pad link.';
+    redirect($apptId ? 'queue.php' : 'patient.php?id='.$pid);
+}
 
 $tok = pad_create($pid, $apptId, $mode);
 $url = pad_url($tok);

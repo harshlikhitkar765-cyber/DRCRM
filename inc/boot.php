@@ -20,6 +20,7 @@ require_once __DIR__ . '/sync.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/layout.php';
 require_once __DIR__ . '/whatsapp.php';
+require_once __DIR__ . '/uploads.php';
 require_once __DIR__ . '/auto.php';   /* used by 11 of the 22 pages */
 
 /* ico() lives in its own file so the public pages can use it too. */
@@ -57,6 +58,17 @@ function gi(string $name, int $default = 0): int {
 function done(string $msg, string $to, string $kind = 'ok'): never {
     $_SESSION[$kind] = $msg;
     redirect($to);
+}
+
+/* Keep the public waiting-room board truthful. Opening any clinical
+   workflow moves a waiting/scheduled appointment into consultation; saving
+   its prescription marks it completed in that workflow's own handler. */
+function appointment_start(PDO $pdo, int $appointmentId): void {
+    if ($appointmentId <= 0) return;
+    $st = $pdo->prepare("UPDATE appointments SET status='In Consult'
+                         WHERE id=? AND status IN ('Waiting','Scheduled')");
+    $st->execute([$appointmentId]);
+    if ($st->rowCount()) audit('appointment_start', 'appointment', $appointmentId);
 }
 
 /* ------------------------------------------------------------------

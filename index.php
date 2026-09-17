@@ -3,5 +3,5 @@
    work if signed in, otherwise to the sign-in screen. */
 declare(strict_types=1);
 require_once __DIR__.'/inc/config.php';
-session_start();
+app_session_start();
 redirect(empty($_SESSION['user']) ? 'login.php' : 'queue.php');

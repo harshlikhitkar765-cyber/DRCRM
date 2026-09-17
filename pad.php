@@ -4,6 +4,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/inc/db.php'; require_once __DIR__.'/inc/refdata.php';
 require_once __DIR__.'/inc/pad.php';
+require_once __DIR__.'/inc/uploads.php';
 require_once __DIR__.'/inc/config.php';
 
 $tok = (string)($_GET['t'] ?? $_POST['t'] ?? '');
@@ -23,7 +24,7 @@ function pad_fail(string $msg): void {
 }
 if (!$s)                       pad_fail('This pad link is not valid.');
 if (!empty($s['expired']))     pad_fail('This pad link has expired.');
-if ($s['status'] === 'done')   pad_fail('This prescription has already been sent to the desk.');
+if ($s['status'] !== 'waiting') pad_fail('This prescription has already been sent to the desk.');
 
 $pdo = db();
 $q = $pdo->prepare('SELECT * FROM patients WHERE id=?'); $q->execute([(int)$s['patient_id']]);
@@ -32,16 +33,17 @@ if (!$pt) pad_fail('Patient not found.');
 
 /* ---- receive the finished image ---- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $data = (string)($_POST['img'] ?? '');
-    if (!preg_match('~^data:image/(png|jpeg);base64,~', $data, $m)) pad_fail('Nothing was captured.');
-    $bin = base64_decode(substr($data, strpos($data, ',') + 1), true);
-    if ($bin === false || strlen($bin) < 400) pad_fail('Image could not be read.');
-    $dir = __DIR__.'/data/rx';
-    if (!is_dir($dir)) mkdir($dir, 0775, true);
-    $ext = ($m[1] === 'jpeg') ? 'jpg' : 'png';
-    $fn  = 'pad_'.(int)$s['patient_id'].'_'.date('Ymd_His').'.'.$ext;
-    file_put_contents($dir.'/'.$fn, $bin);
-    pad_complete($tok, $fn, (string)($_POST['kind'] ?? 'write'));
+    try {
+        $fn = store_image_data_url((string)($_POST['img'] ?? ''), __DIR__.'/data/rx', 'pad_'.(int)$s['patient_id']);
+        /* The conditional update makes the token single-use even when a phone
+           submits twice. Do not leave an orphan file from a losing retry. */
+        if (!pad_complete($tok, $fn, (string)$s['mode'])) {
+            @unlink(__DIR__.'/data/rx/'.$fn);
+            pad_fail('This pad link has already been used or has expired.');
+        }
+    } catch (Throwable $e) {
+        pad_fail('Image could not be saved. Please use a clear PNG or JPEG under 8 MB.');
+    }
     ?><!DOCTYPE html><html><head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1"><title>Sent</title><style>
     body{font-family:system-ui,sans-serif;background:#0b6b3a;color:#fff;display:grid;place-items:center;
@@ -138,37 +140,45 @@ var PT=<?= json_encode(['n'=>$pt['name'],'a'=>$pt['age'].$pt['sex'],'ab'=>$pt['a
 var cv=document.getElementById('cv'), cx=cv.getContext('2d');
 
 if(MODE==='write'){
+  /* Keep the printed letterhead behind a transparent ink layer. Erasing a
+     mistake must never punch a hole through the patient's prescription. */
+  var form=document.createElement('canvas'); form.width=cv.width; form.height=cv.height;
+  var fx=form.getContext('2d');
   var undo=[], colour='#12305c', tool='pen', drawing=false, last=null;
   function head(){
-    cx.fillStyle='#fff'; cx.fillRect(0,0,cv.width,cv.height);
-    cx.fillStyle='#0e7c86'; cx.fillRect(0,0,cv.width,10);
-    cx.fillStyle='#0f2a3d'; cx.font='800 30px Georgia,serif'; cx.fillText(CL.n,44,64);
-    cx.fillStyle='#4a5a66'; cx.font='15px Georgia,serif'; cx.fillText(CL.d+' · '+CL.q,44,90);
-    cx.textAlign='right'; cx.fillStyle='#5a6b75'; cx.font='12px system-ui';
-    cx.fillText(CL.p,cv.width-44,64); cx.fillText(CL.a,cv.width-44,84); cx.textAlign='left';
-    cx.strokeStyle='#0e7c86'; cx.lineWidth=2.2;
-    cx.beginPath(); cx.moveTo(44,112); cx.lineTo(cv.width-44,112); cx.stroke();
-    cx.fillStyle='#0f2a3d'; cx.font='600 18px system-ui';
-    cx.fillText(PT.n+'  ('+PT.a+')',44,146);
-    cx.fillStyle='#7a8b95'; cx.font='13px system-ui'; cx.fillText('ABHA '+PT.ab,44,168);
-    cx.textAlign='right'; cx.fillStyle='#0f2a3d'; cx.font='600 14px system-ui';
-    cx.fillText(PT.d,cv.width-44,146); cx.textAlign='left';
+    fx.fillStyle='#fff'; fx.fillRect(0,0,cv.width,cv.height);
+    fx.fillStyle='#0e7c86'; fx.fillRect(0,0,cv.width,10);
+    fx.fillStyle='#0f2a3d'; fx.font='800 30px Georgia,serif'; fx.fillText(CL.n,44,64);
+    fx.fillStyle='#4a5a66'; fx.font='15px Georgia,serif'; fx.fillText(CL.d+' · '+CL.q,44,90);
+    fx.textAlign='right'; fx.fillStyle='#5a6b75'; fx.font='12px system-ui';
+    fx.fillText(CL.p,cv.width-44,64); fx.fillText(CL.a,cv.width-44,84); fx.textAlign='left';
+    fx.strokeStyle='#0e7c86'; fx.lineWidth=2.2;
+    fx.beginPath(); fx.moveTo(44,112); fx.lineTo(cv.width-44,112); fx.stroke();
+    fx.fillStyle='#0f2a3d'; fx.font='600 18px system-ui';
+    fx.fillText(PT.n+'  ('+PT.a+')',44,146);
+    fx.fillStyle='#7a8b95'; fx.font='13px system-ui'; fx.fillText('ABHA '+PT.ab,44,168);
+    fx.textAlign='right'; fx.fillStyle='#0f2a3d'; fx.font='600 14px system-ui';
+    fx.fillText(PT.d,cv.width-44,146); fx.textAlign='left';
     var top=190;
     if(PT.al && PT.al.trim()!==''){
-      cx.fillStyle='#fdeaea'; cx.fillRect(44,182,cv.width-88,32);
-      cx.fillStyle='#9b2c2c'; cx.font='600 14px system-ui';
-      cx.fillText('\u26A0  Allergies: '+PT.al,58,203); top=232;
+      fx.fillStyle='#fdeaea'; fx.fillRect(44,182,cv.width-88,32);
+      fx.fillStyle='#9b2c2c'; fx.font='600 14px system-ui';
+      fx.fillText('\u26A0  Allergies: '+PT.al,58,203); top=232;
     }
-    cx.fillStyle='#0e7c86'; cx.font='italic 700 38px Georgia,serif'; cx.fillText('\u211E',48,top+42);
-    cx.strokeStyle='#eef3f5'; cx.lineWidth=1;
-    for(var y=top+80;y<cv.height-90;y+=50){ cx.beginPath(); cx.moveTo(44,y); cx.lineTo(cv.width-44,y); cx.stroke(); }
-    cx.strokeStyle='#c9d6db'; cx.lineWidth=1.3;
-    cx.beginPath(); cx.moveTo(cv.width-330,cv.height-70); cx.lineTo(cv.width-44,cv.height-70); cx.stroke();
-    cx.fillStyle='#5a6b75'; cx.font='13px system-ui'; cx.textAlign='right';
-    cx.fillText(CL.d,cv.width-44,cv.height-48); cx.textAlign='left';
+    fx.fillStyle='#0e7c86'; fx.font='italic 700 38px Georgia,serif'; fx.fillText('\u211E',48,top+42);
+    fx.strokeStyle='#eef3f5'; fx.lineWidth=1;
+    for(var y=top+80;y<cv.height-90;y+=50){ fx.beginPath(); fx.moveTo(44,y); fx.lineTo(cv.width-44,y); fx.stroke(); }
+    fx.strokeStyle='#c9d6db'; fx.lineWidth=1.3;
+    fx.beginPath(); fx.moveTo(cv.width-330,cv.height-70); fx.lineTo(cv.width-44,cv.height-70); fx.stroke();
+    fx.fillStyle='#5a6b75'; fx.font='13px system-ui'; fx.textAlign='right';
+    fx.fillText(CL.d,cv.width-44,cv.height-48); fx.textAlign='left';
   }
   function snap(){ undo.push(cx.getImageData(0,0,cv.width,cv.height)); if(undo.length>18) undo.shift(); }
-  function reset(){ head(); undo=[]; snap(); }
+  function paint(){
+    cv.style.backgroundImage='url('+form.toDataURL('image/png')+')';
+    cv.style.backgroundSize='100% 100%';
+  }
+  function reset(){ head(); cx.clearRect(0,0,cv.width,cv.height); paint(); undo=[]; snap(); }
   reset();
   document.getElementById('tpen').onclick=function(){tool='pen';this.classList.add('on');
     document.getElementById('ter').classList.remove('on');};

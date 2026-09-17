@@ -6,19 +6,12 @@ function db(): PDO {
     static $pdo = null;
     if ($pdo instanceof PDO) return $pdo;
 
-    /* Copy-pasting these four values out of a hosting control panel very often
-       drags in a leading or trailing space. MySQL then reports a confusing
-       "Access denied ... to database ' name'" that looks like a permissions
-       problem when it is really a stray character. Trim them. */
-    /* The live values come from inc/config.php. A local sandbox or a second
-       machine can override them by dropping a data/config.local.php that
-       returns an array — that file is never uploaded to the host, so the
-       real credentials in config.php are left untouched. */
-    $host = trim(DB_HOST); $name = trim(DB_NAME);
-    $user = trim(DB_USER); $pass = trim(DB_PASS, " \t\n\r\0\x0B");
+    /* Copy-pasting host values often drags in a leading or trailing space.
+       config.php already reads the private local file/environment, and we
+       trim once more here before constructing the DSN. */
+    $host = trim((string)DB_HOST); $name = trim((string)DB_NAME);
+    $user = trim((string)DB_USER); $pass = trim((string)DB_PASS, " \t\n\r\0\x0B");
     $port = (int)DB_PORT;
-
-    /* Production uses only inc/config.php. Do not allow a local override on the live server. */
 
     $dsn = sprintf('mysql:host=%s;port=%d;dbname=%s;charset=%s',
                    $host, $port, $name, DB_CHARSET);
@@ -69,7 +62,7 @@ function db(): PDO {
             $rows .= '<tr><td style="padding:3px 12px 3px 0;color:#667">' . $k . '</td>'
                    . '<td style="padding:3px 0"><code>[' . htmlspecialchars($v) . ']</code>'
                    . ($dirty ? ' <b style="color:#c62828">&larr; had a space around it; '
-                             . 'remove it in inc/config.php</b>' : '')
+                             . 'remove it in data/config.local.php</b>' : '')
                    . '</td></tr>';
         }
 
@@ -82,8 +75,9 @@ function db(): PDO {
            . '<p style="margin:0 0 6px;color:#667">These are the values it used '
            . '(square brackets show any stray spaces):</p>'
            . '<table style="border-collapse:collapse;font-size:13px">' . $rows . '</table>'
-           . '<p style="margin:14px 0 0;color:#667">Edit them in <code>inc/config.php</code>. '
-           . 'Setup steps are in <code>DATABASE.md</code>.</p></div>';
+                   . '<p style="margin:14px 0 0;color:#667">Edit them in the private '
+                   . '<code>data/config.local.php</code> file (or your host environment). '
+                   . 'Setup steps are in <code>DATABASE.md</code>.</p></div>';
         exit;
     }
 
@@ -94,7 +88,9 @@ function db(): PDO {
     $fresh = (int)$pdo->query("SELECT COUNT(*) FROM information_schema.tables
                                WHERE table_schema = DATABASE()")->fetchColumn() === 0;
     migrate($pdo);
-    if ($fresh) seed($pdo);
+    /* Sample patients and appointments are useful only in an explicitly
+       private demo. A real new clinic starts with an empty patient register. */
+    if ($fresh && APP_DEMO_MODE) seed($pdo);
     return $pdo;
 }
 
@@ -127,6 +123,7 @@ function migrate(PDO $pdo): void {
       appt_date DATE NOT NULL, appt_time VARCHAR(10) NOT NULL,
       visit_type VARCHAR(40) DEFAULT 'New', mode VARCHAR(30) DEFAULT 'In-clinic',
       reason TEXT, status VARCHAR(20) DEFAULT 'Waiting', token VARCHAR(20),
+      UNIQUE KEY uq_appt_day_token (appt_date, token),
       INDEX(appt_date), INDEX(patient_id),
       CONSTRAINT fk_appt_pt FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -204,9 +201,9 @@ function migrate(PDO $pdo): void {
     CREATE TABLE IF NOT EXISTS wa_replies(
       id INT AUTO_INCREMENT PRIMARY KEY,
       patient_id INT NULL,
-      phone VARCHAR(30), body TEXT, intent VARCHAR(30), handled TINYINT DEFAULT 0,
-      received_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      INDEX(patient_id),
+      phone VARCHAR(30), body TEXT, intent VARCHAR(30), message_id VARCHAR(100) NULL,
+      handled TINYINT DEFAULT 0, received_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_reply_message (message_id), INDEX(patient_id),
       CONSTRAINT fk_rep_pt FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -357,10 +354,41 @@ function migrate(PDO $pdo): void {
         if (!in_array($col, $cn, true)) $pdo->exec("ALTER TABLE consult_notes ADD COLUMN `$col` $type");
     }
 
+    /* Old versions did not make a daily queue token unique. Repair any
+       hand-entered duplicates before adding the key, then booking can retry a
+       duplicate-key race without ever issuing the same token twice. */
+    $apptIndexes = array_column($pdo->query('SHOW INDEX FROM appointments')->fetchAll(), 'Key_name');
+    if (!in_array('uq_appt_day_token', $apptIndexes, true)) {
+        $dupes = $pdo->query("SELECT appt_date, token, GROUP_CONCAT(id ORDER BY id) ids
+                              FROM appointments WHERE token IS NOT NULL
+                              GROUP BY appt_date, token HAVING COUNT(*) > 1")->fetchAll();
+        $repair = $pdo->prepare("UPDATE appointments
+                                 SET token=CONCAT(IF(mode='Teleconsult','T-','A-'), LPAD(id,10,'0'))
+                                 WHERE id=?");
+        foreach ($dupes as $dupe) {
+            $ids = array_map('intval', explode(',', (string)$dupe['ids']));
+            array_shift($ids); // Preserve the oldest historic token.
+            foreach ($ids as $id) $repair->execute([$id]);
+        }
+        $pdo->exec('ALTER TABLE appointments ADD UNIQUE KEY uq_appt_day_token (appt_date, token)');
+    }
+
+    /* Meta retries successful webhooks, so each inbound message needs an
+       idempotency key. Existing installations get the column and index too. */
+    $wr = array_column($pdo->query('SHOW COLUMNS FROM wa_replies')->fetchAll(), 'Field');
+    if (!in_array('message_id', $wr, true)) {
+        $pdo->exec('ALTER TABLE wa_replies ADD COLUMN message_id VARCHAR(100) NULL');
+    }
+    $wrIndexes = array_column($pdo->query('SHOW INDEX FROM wa_replies')->fetchAll(), 'Key_name');
+    if (!in_array('uq_reply_message', $wrIndexes, true)) {
+        $pdo->exec('ALTER TABLE wa_replies ADD UNIQUE KEY uq_reply_message (message_id)');
+    }
+
     if ((int)$pdo->query('SELECT COUNT(*) FROM picklists')->fetchColumn() === 0)    seed_picklists($pdo);
     if ((int)$pdo->query('SELECT COUNT(*) FROM brands')->fetchColumn() === 0)       seed_brands($pdo);
     if ((int)$pdo->query('SELECT COUNT(*) FROM settings')->fetchColumn() === 0)     seed_settings($pdo);
     if ((int)$pdo->query('SELECT COUNT(*) FROM advice_lines')->fetchColumn() === 0) seed_advice($pdo);
+    if ((int)$pdo->query('SELECT COUNT(*) FROM templates')->fetchColumn() === 0) seed_templates($pdo);
 
     if ((int)$pdo->query('SELECT COUNT(*) FROM drugs')->fetchColumn() === 0)  seed_drugs($pdo);
     if ((int)$pdo->query('SELECT COUNT(*) FROM labs')->fetchColumn()  === 0)  seed_labs($pdo);
@@ -408,7 +436,12 @@ function seed(PDO $pdo): void {
                          VALUES(?,?,?,?,?,?,?,?)');
     foreach ($hc as $h) $st->execute($h);
 
-    /* Seed the editable WhatsApp templates */
+    seed_templates($pdo);
+}
+
+/* A schema-only import must still receive editable message templates. */
+function seed_templates(PDO $pdo): void {
+    if ((int)$pdo->query('SELECT COUNT(*) FROM templates')->fetchColumn() > 0) return;
     require_once __DIR__ . '/whatsapp.php';
     $st = $pdo->prepare('INSERT INTO templates(name,lang,body,is_default) VALUES(?,?,?,1)');
     foreach (default_templates() as $lang => $body) {

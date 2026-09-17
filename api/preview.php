@@ -1,11 +1,15 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/../inc/db.php';
+require_once __DIR__.'/../inc/auth.php';
 require_once __DIR__.'/../inc/whatsapp.php';
 require_once __DIR__.'/../inc/safety.php';
-session_start();
-if (empty($_SESSION['user'])) { http_response_code(401); exit(json_encode(['html'=>'Session expired.'])); }
+app_session_start();
 header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); exit(json_encode(['error'=>'method'])); }
+if (empty($_SESSION['user'])) { http_response_code(401); exit(json_encode(['html'=>'Session expired.'])); }
+if (!is_doctor()) { http_response_code(403); exit(json_encode(['error'=>'doctor'])); }
 
 $pdo=db();
 $pid=(int)($_POST['patient_id']??0);

@@ -39,7 +39,7 @@ head('Home Care');
     <div style="background:<?= $isIcu?'#fdeaea':'var(--v-ll)' ?>;border-radius:8px;padding:9px 11px;font-size:11.5px;line-height:1.5;margin-bottom:11px">
       <b>Clinical note:</b> <?= e($h['note']) ?></div>
     <div style="display:flex;gap:7px;flex-wrap:wrap">
-      <a class="btn sm" href="consult.php?patient=<?= (int)$h['patient_id'] ?>">Record visit</a>
+      <?php if (is_doctor()): ?><a class="btn sm" href="consult.php?patient=<?= (int)$h['patient_id'] ?>">Record visit</a><?php endif; ?>
       <a class="btn ghost sm" href="patient.php?id=<?= (int)$h['patient_id'] ?>">Chart</a></div>
   </div>
 <?php endforeach; ?>

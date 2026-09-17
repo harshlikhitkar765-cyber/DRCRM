@@ -221,8 +221,15 @@ function wa_number(string $phone): string {
     return $n;
 }
 
+function wa_valid_number(string $phone): bool {
+    return (bool)preg_match('/^[1-9]\d{7,14}$/', wa_number($phone));
+}
+
 function wa_link(string $phone, string $body): string {
-    return 'https://wa.me/' . wa_number($phone) . '?text=' . rawurlencode($body);
+    $number = wa_number($phone);
+    return preg_match('/^[1-9]\d{7,14}$/', $number)
+        ? 'https://wa.me/' . $number . '?text=' . rawurlencode($body)
+        : '';
 }
 
 /**
@@ -230,6 +237,10 @@ function wa_link(string $phone, string $body): string {
  * Returns ['ok'=>bool,'driver'=>string,'link'=>?string,'status'=>string,'response'=>string]
  */
 function wa_send(string $phone, string $body): array {
+    if (!wa_valid_number($phone)) {
+        return ['ok'=>false, 'driver'=>'link', 'link'=>null, 'status'=>'Failed',
+                'response'=>'Patient phone number is not a valid international WhatsApp number.'];
+    }
     if (WA['driver'] === 'cloud' && WA['phone_id'] && WA['token']) {
         return wa_send_cloud($phone, $body);
     }
@@ -243,6 +254,10 @@ function wa_send(string $phone, string $body): array {
 }
 
 function wa_send_cloud(string $phone, string $body): array {
+    if (!function_exists('curl_init')) {
+        return ['ok'=>false, 'driver'=>'cloud', 'link'=>null, 'status'=>'Failed',
+                'response'=>'PHP cURL extension is not enabled.'];
+    }
     $url = 'https://graph.facebook.com/' . WA['api_version'] . '/' . WA['phone_id'] . '/messages';
     $payload = [
         'messaging_product' => 'whatsapp',
@@ -286,13 +301,16 @@ function wa_send_cloud(string $phone, string $body): array {
    --------------------------------------------------------------- */
 
 function rx_image_url(int $rxId): string {
-    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-    $host   = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    $dir    = rtrim(str_replace('\\','/',dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
-    return $scheme.'://'.$host.$dir.'/rximg.php?rx='.$rxId.'&t='.rx_token($rxId);
+    $base = public_app_url();
+    if ($base === '') throw new RuntimeException('Set APP_URL in data/config.local.php before sending an image link.');
+    return $base.'/rximg.php?rx='.$rxId.'&t='.rawurlencode(rx_token($rxId));
 }
 
 function wa_send_image(string $phone, string $caption, int $rxId, string $absPath): array {
+    if (!wa_valid_number($phone)) {
+        return ['ok'=>false, 'driver'=>'link', 'link'=>null, 'status'=>'Failed',
+                'response'=>'Patient phone number is not a valid international WhatsApp number.'];
+    }
     if (WA['driver'] === 'cloud' && WA['phone_id'] && WA['token']) {
         return wa_send_image_cloud($phone, $caption, $absPath);
     }
@@ -308,6 +326,7 @@ function wa_send_image(string $phone, string $caption, int $rxId, string $absPat
 
 /* Cloud API needs the media uploaded first, then referenced by id. */
 function wa_upload_media(string $absPath): array {
+    if (!function_exists('curl_init')) return ['id'=>null, 'raw'=>'PHP cURL extension is not enabled.'];
     $url = 'https://graph.facebook.com/'.WA['api_version'].'/'.WA['phone_id'].'/media';
     $ch  = curl_init($url);
     curl_setopt_array($ch, [

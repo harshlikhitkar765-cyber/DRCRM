@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/inc/boot.php';
 
-require_login();
+require_doctor();
 
 $pdo = db();
 $rxId = (int)($_GET['rx'] ?? $_POST['rx'] ?? 0);
@@ -39,28 +39,44 @@ $inkAbs = $isInk ? __DIR__.'/data/rx/'.basename((string)$rx['ink_file']) : null;
 $body = $isInk
     ? ink_caption($rx, (string)$rx['diagnosis'], (string)$rx['follow_up'])
     : build_body($pdo,$rx,$meds,$vitals,$labs,$lang);
-$link = null; $sentNow = false;
+$link = null; $sentNow = false; $sendError = '';
 
 if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['do'] ?? '')==='send') {
     csrf_check();
-    if ($isInk) {
-        $body = pf('body') !== '' ? (string)$_POST['body'] : $body;
-        $res  = wa_send_image((string)$rx['phone'], $body, $rxId, (string)$inkAbs);
+    /* Consent must be enforced on the server, not merely shown as a red
+       message in the UI. This also protects direct POSTs and resend links. */
+    if ((int)($rx['wa_consent'] ?? 0) !== 1) {
+        $sendError = 'WhatsApp consent has not been recorded for this patient. No message was sent.';
+        audit('wa_send_blocked', 'prescription', $rxId, 'missing consent');
     } else {
-        $body = build_body($pdo,$rx,$meds,$vitals,$labs,$lang, $_POST['body'] ?? null);
-        $res  = wa_send((string)$rx['phone'], $body);
-    }
-    $link = $res['link'] ?? null;
-    audit('wa_send', 'prescription', $rxId, $res['driver'].'/'.$res['status']);
+        try {
+            if ($isInk) {
+                $body = pf('body') !== '' ? (string)$_POST['body'] : $body;
+                $res  = wa_send_image((string)$rx['phone'], $body, $rxId, (string)$inkAbs);
+            } else {
+                $body = build_body($pdo,$rx,$meds,$vitals,$labs,$lang, $_POST['body'] ?? null);
+                $res  = wa_send((string)$rx['phone'], $body);
+            }
+            $link = $res['link'] ?? null;
+            audit('wa_send', 'prescription', $rxId, $res['driver'].'/'.$res['status']);
 
-    $ins = $pdo->prepare('INSERT INTO wa_messages(patient_id,rx_id,phone,lang,body,driver,status,response)
-                          VALUES(?,?,?,?,?,?,?,?)');
-    $ins->execute([(int)$rx['patient_id'],$rxId,$rx['phone'],$lang,$body,
-                   $res['driver'],$res['status'],$res['response']]);
-    $sentNow = true;
-    $_SESSION['ok'] = $res['driver']==='cloud'
-        ? ($res['ok'] ? 'Message delivered via WhatsApp Cloud API.' : 'Cloud API returned an error — see WhatsApp log.')
-        : 'Message ready — press the green button to open WhatsApp.';
+            $ins = $pdo->prepare('INSERT INTO wa_messages(patient_id,rx_id,phone,lang,body,driver,status,response)
+                                  VALUES(?,?,?,?,?,?,?,?)');
+            $ins->execute([(int)$rx['patient_id'],$rxId,$rx['phone'],$lang,$body,
+                           $res['driver'],$res['status'],$res['response']]);
+            $sentNow = (bool)$res['ok'];
+            if ($res['ok']) {
+                $_SESSION['ok'] = $res['driver']==='cloud'
+                    ? 'Message delivered via WhatsApp Cloud API.'
+                    : 'Message ready — press the green button to open WhatsApp.';
+            } else {
+                $sendError = 'WhatsApp could not accept this message. Check the patient phone number and the delivery log.';
+            }
+        } catch (Throwable $e) {
+            $sendError = $e->getMessage();
+            audit('wa_send_blocked', 'prescription', $rxId, 'delivery configuration error');
+        }
+    }
 }
 
 head('Send on WhatsApp');
@@ -73,6 +89,9 @@ head('Send on WhatsApp');
   <a class="btn ghost sm" href="print.php?rx=<?= $rxId ?>" target="_blank">⎙ Print prescription</a>
 </div>
 
+<?php if ($sendError !== ''): ?>
+  <div class="flash-err" role="alert"><?= e($sendError) ?></div>
+<?php endif; ?>
 <?php if ((int)($rx['wa_consent'] ?? 1) !== 1): ?>
   <div class="card" style="background:#fdeaea;border:1px solid var(--red)">
     <b style="font-size:13px">⚠ This patient has not consented to WhatsApp messages</b>
@@ -98,7 +117,12 @@ head('Send on WhatsApp');
       </div>
       <div class="field"><label>Message body</label>
         <textarea name="body" rows="18" style="font-size:12.5px;line-height:1.55"><?= e($body) ?></textarea></div>
-      <button class="btn wa" style="padding:11px 18px">Send to <?= e($rx['phone']) ?></button>
+      <?php if ((int)($rx['wa_consent'] ?? 0) === 1): ?>
+        <button class="btn wa" style="padding:11px 18px">Send to <?= e($rx['phone']) ?></button>
+      <?php else: ?>
+        <button class="btn wa" style="padding:11px 18px" disabled>Consent required before sending</button>
+        <a class="btn ghost" href="patient.php?id=<?= (int)$rx['patient_id'] ?>">Record consent</a>
+      <?php endif; ?>
       <a class="btn ghost" href="queue.php">Back to queue</a>
     </form>
   </div>
@@ -111,8 +135,8 @@ head('Send on WhatsApp');
         <a class="btn wa" style="width:100%;text-align:center;padding:13px;font-size:14px"
            href="<?= e($link) ?>" target="_blank" rel="noopener">Open WhatsApp &amp; send →</a>
         <div class="ph">Logged to the WhatsApp history either way.
-          To send automatically without this step, switch <code>WA['driver']</code> to <code>cloud</code> in
-          <code>inc/config.php</code>.</div>
+          To send automatically without this step, set <code>WA_DRIVER</code> to <code>cloud</code> in
+          <code>data/config.local.php</code> and add the Meta credentials.</div>
       </div>
     <?php endif; ?>
 

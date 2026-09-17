@@ -25,11 +25,11 @@
 | **Recording reliability: edit-safe box, restart backoff, final-only saves** | `assets/scribe.js` |
 | **Phone layout (tables become cards, bottom nav) + professional polish** | `assets/app.css`, `assets/responsive.js` |
 | **Professional sidebar: SVG icons, workflow groups, signed-in identity** | `inc/layout.php`, `assets/app.css` |
-| **Everything in the database + Settings page (21 tables, nothing hardcoded)** | `settings.php`, `inc/refdata.php` |
+| **Everything in the database + Settings page (22 tables, nothing hardcoded)** | `settings.php`, `inc/refdata.php` |
 | **Exported SQL schema + column reference; consult_notes FKs fixed** | `schema.sql`, `TABLES.md` |
 | **https-required notice as a proper UI component; typed route signposted** | `assets/scribe.js`, `assets/app.css` |
 | **Web-app routing + rebuilt sign-in screen (design system retained)** | `index.php`, `login.php`, `assets/design.css` |
-| **One-click demo access; fixed CSRF accepting an empty token** | `login.php`, `inc/config.php` |
+| **Opt-in demo access; hardened CSRF, roles, consent and webhook handling** | `login.php`, `inc/config.php`, `webhook.php` |
 | **Failed recording offers recovery: switch language, or type it** | `assets/scribe.js` |
 | **Responsive pass: 287 touch targets fixed, grid blowout, clipped tables** | `assets/app.css`, `backup.php` |
 | **Cache-busting on all CSS/JS so uploads take effect immediately** | `inc/layout.php`, `CACHE.md` |

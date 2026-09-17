@@ -18,18 +18,31 @@ In cPanel / hPanel: **Databases → MySQL Databases**
 The host will prefix things, so your real names often look like
 `u123456_clinic` and `u123456_drbakshi`. Use exactly what the panel shows.
 
-## 2. Put the four values in `inc/config.php`
+## 2. Put the connection values in a private config file
+
+Copy `data/config.local.php.example` to `data/config.local.php`, then set:
 
 ```php
-const DB_HOST = 'localhost';        // shared hosts: almost always localhost
-const DB_PORT = 3306;
-const DB_NAME = 'u123456_clinic';
-const DB_USER = 'u123456_drbakshi';
-const DB_PASS = 'the-long-password';
+return [
+    'DB_HOST' => 'localhost',       // shared hosts: almost always localhost
+    'DB_PORT' => '3306',
+    'DB_NAME' => 'u123456_clinic',
+    'DB_USER' => 'u123456_drbakshi',
+    'DB_PASS' => 'the-long-password',
+    'APP_URL' => 'https://clinic.example.com', // required for QR/image links
+    'INITIAL_DOCTOR_USERNAME' => 'doctor',
+    'INITIAL_DOCTOR_PASSWORD' => 'a-long-unique-password',
+];
 ```
 
-Nothing else needs editing. On the first page load the app creates all 16
-tables by itself.
+`data/config.local.php` is ignored by Git and denied from the web. If your
+host supports environment variables, `DRCRM_DB_HOST`, `DRCRM_DB_PORT`,
+`DRCRM_DB_NAME`, `DRCRM_DB_USER`, `DRCRM_DB_PASS`, `DRCRM_APP_URL` and the
+corresponding `DRCRM_INITIAL_DOCTOR_*` variables take precedence instead.
+
+On the first page load the app creates all **22 tables** and the configured
+initial doctor account. `DEMO_MODE=1` is only for a private sample database;
+do not enable it on a public site.
 
 If the details are wrong you get a plain message saying **"Cannot reach the
 database"** and what MySQL complained about — not a blank white page.
@@ -44,20 +57,20 @@ schema on first run.
 ## If you get "Access denied ... to database"
 
 ```
-SQLSTATE[HY000] [1044] Access denied for user 'u835224156_druser'@'...'
-to database ' u835224156_drbd'
+SQLSTATE[HY000] [1044] Access denied for user 'u123456_druser'@'...'
+to database ' u123456_clinic'
 ```
 
 **Look inside the quotes around the database name.** If there is a space —
 or a line break — before the name, that is the whole problem. The value in
-`inc/config.php` was pasted out of the control panel and picked up
+`data/config.local.php` was pasted out of the control panel and picked up
 whitespace:
 
 ```php
-const DB_NAME = '
-u835224156_drbd';                     // wrong — pasted with a line break
-const DB_NAME = ' u835224156_drbd';   // wrong — pasted with a space
-const DB_NAME = 'u835224156_drbd';    // right
+'DB_NAME' => "
+u123456_clinic",  // wrong — pasted with a line break
+'DB_NAME' => ' u123456_clinic',    // wrong — pasted with a space
+'DB_NAME' => 'u123456_clinic',     // right
 ```
 
 A line break is easy to miss because the name still *looks* right on the
@@ -68,9 +81,9 @@ Check `DB_USER` and `DB_PASS` too; the same paste usually spaces those as
 well. A space in the password is the nastiest one, because the error just
 says "Access denied for user" and gives no clue.
 
-The app now trims these four values automatically, so a stray space no
-longer stops it, and the error screen prints each value inside square
-brackets and flags any that had spaces around it.
+The app trims surrounding whitespace from connection settings automatically,
+so a stray pasted space no longer stops it. Do not intentionally use leading
+or trailing whitespace in a database password.
 
 If the name really is correct and it still fails, the user has not been
 attached to the database. In cPanel/hPanel: **MySQL Databases → Add user to
@@ -104,8 +117,8 @@ converted, kept here in case you ever hand this code to another developer:
 
 **Character set is `utf8mb4` throughout.** This matters: Hindi text and the
 emoji in the WhatsApp templates both need it. Plain `utf8` in MySQL is only
-3 bytes and silently mangles emoji. Verified: 🏥 and विज़िट सारांश survive a
-full backup-and-restore cycle.
+3 bytes and silently mangles emoji. Use `utf8mb4` for all imports and backups
+so emoji and Hindi text are preserved.
 
 **Foreign keys are real now.** Delete a patient and their appointments,
 prescriptions, bills and documents go with them (`ON DELETE CASCADE`), which
@@ -158,4 +171,4 @@ two warnings from earlier now matter much more than they did on a LAN:
 
 1. **Get HTTPS working** — free with Let's Encrypt, one click in most panels.
    Without it, logins and patient data cross the network in clear text.
-2. **Change both demo passwords** before the first real patient.
+2. **Create a unique initial doctor password** before the first real patient, and leave `DEMO_MODE` off on a live system.

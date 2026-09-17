@@ -5,7 +5,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/inc/boot.php';
 
-require_login();
+require_doctor();
 
 $pdo = db();
 $apptId = (int)($_GET['appt'] ?? $_POST['appt_id'] ?? 0);
@@ -15,38 +15,29 @@ if ($apptId) {
     $appt = $a->fetch();
     if (!$appt) { http_response_code(404); exit('Appointment not found'); }
     $pid = (int)$appt['patient_id'];
+    appointment_start($pdo, $apptId);
 }
 $p = $pdo->prepare('SELECT * FROM patients WHERE id=?'); $p->execute([$pid]); $pt = $p->fetch();
 if (!$pt) { http_response_code(404); exit('Patient not found'); }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
-    $data = (string)($_POST['shot'] ?? '');
-    if (!preg_match('~^data:image/(png|jpeg);base64,~', $data, $m)) {
-        $_SESSION['err'] = 'No photo was captured.';
-        redirect('scan.php?patient='.$pid);
+    try {
+        $fn = store_image_data_url((string)($_POST['shot'] ?? ''), __DIR__.'/data/rx', 'scan_'.$pid);
+        $st = $pdo->prepare('INSERT INTO prescriptions(patient_id,rx_date,diagnosis,vitals,meds,labs,advice,follow_up,ink_file,ink_mode)
+                             VALUES(?,?,?,?,?,?,?,?,?,1)');
+        $st->execute([$pid, date('Y-m-d'),
+            pf('diagnosis'), json_encode([]), json_encode([]), json_encode([]),
+            '', dnull(pf('follow_up')), $fn]);
+        $rxId = (int)$pdo->lastInsertId();
+        if ($apptId) $pdo->prepare("UPDATE appointments SET status='Completed' WHERE id=?")->execute([$apptId]);
+        audit('rx_create', 'prescription', $rxId, 'paper scan');
+        $_SESSION['ok'] = 'Paper prescription captured.';
+        redirect("send.php?rx=$rxId");
+    } catch (Throwable $e) {
+        $_SESSION['err'] = $e->getMessage();
+        redirect('scan.php?'.($apptId ? 'appt='.$apptId : 'patient='.$pid));
     }
-    $bin = base64_decode(substr($data, strpos($data, ',') + 1), true);
-    if ($bin === false || strlen($bin) < 500) {
-        $_SESSION['err'] = 'Photo could not be read. Try again.';
-        redirect('scan.php?patient='.$pid);
-    }
-    $dir = __DIR__.'/data/rx';
-    if (!is_dir($dir)) mkdir($dir, 0775, true);
-    $ext = ($m[1] === 'jpeg') ? 'jpg' : 'png';
-    $fn = 'scan_'.$pid.'_'.date('Ymd_His').'.'.$ext;
-    file_put_contents($dir.'/'.$fn, $bin);
-
-    $st = $pdo->prepare('INSERT INTO prescriptions(patient_id,rx_date,diagnosis,vitals,meds,labs,advice,follow_up,ink_file,ink_mode)
-                         VALUES(?,?,?,?,?,?,?,?,?,1)');
-    $st->execute([$pid, date('Y-m-d'),
-        pf('diagnosis'), json_encode([]), json_encode([]), json_encode([]),
-        '', pf('follow_up'), $fn]);
-    $rxId = (int)$pdo->lastInsertId();
-    if ($apptId) $pdo->prepare("UPDATE appointments SET status='Completed' WHERE id=?")->execute([$apptId]);
-
-    $_SESSION['ok'] = 'Paper prescription captured.';
-    redirect("send.php?rx=$rxId");
 }
 
 head('Scan Paper Prescription');

@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/inc/boot.php';
 
-require_login();
+require_doctor();
 
 $pdo = db();
 
@@ -14,6 +14,7 @@ if ($apptId) {
     $appt = $a->fetch();
     if (!$appt) { http_response_code(404); exit('Appointment not found'); }
     $pid = (int)$appt['patient_id'];
+    appointment_start($pdo, $apptId);
 }
 $p = $pdo->prepare('SELECT * FROM patients WHERE id=?'); $p->execute([$pid]); $pt = $p->fetch();
 if (!$pt) { http_response_code(404); exit('Patient not found'); }
@@ -51,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         json_encode($meds,   JSON_UNESCAPED_UNICODE),
         json_encode($labs,   JSON_UNESCAPED_UNICODE),
         pf('advice'),
-        pf('follow_up'),
+        dnull(pf('follow_up')),
     ]);
     $rxId = (int)$pdo->lastInsertId();
 

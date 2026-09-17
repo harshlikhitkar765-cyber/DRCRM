@@ -5,8 +5,19 @@ require_once __DIR__ . '/sync.php';
 require_once __DIR__ . '/config.php';
 
 function require_login(): void {
-    if (session_status() === PHP_SESSION_NONE) session_start();
-    if (empty($_SESSION['user'])) redirect('login.php');
+    app_session_start();
+    if (empty($_SESSION['user']) || !is_array($_SESSION['user'])) redirect('login.php');
+}
+
+/* Clinical and system-administration actions must stay with a doctor. The
+   front-desk account can run the queue, registration and billing, but cannot
+   issue prescriptions, alter the formulary or download the full database. */
+function require_doctor(): void {
+    require_login();
+    if (!is_doctor()) {
+        http_response_code(403);
+        exit('Doctor access is required for this action.');
+    }
 }
 
 /* ------------------------------------------------------------------
@@ -44,10 +55,9 @@ function nav_icon(string $k): string {
 }
 
 function nav_groups(): array {
-    return [
+    $groups = [
         'Today' => [
             ['queue.php',    'queue',    'OPD Queue'],
-            ['recall.php',   'recalls',  'Recalls'],
             ['display.php',  'tv',       'TV Board'],
         ],
         'Records' => [
@@ -55,17 +65,22 @@ function nav_groups(): array {
             ['homecare.php', 'homecare', 'Home Care'],
             ['billing.php',  'billing',  'Billing'],
         ],
-        'Messaging' => [
+    ];
+
+    if (is_doctor()) {
+        $groups['Today'][] = ['recall.php', 'recalls', 'Recalls'];
+        $groups['Messaging'] = [
             ['inbox.php',    'replies',  'Replies'],
             ['messages.php', 'whatsapp', 'WhatsApp'],
             ['templates.php','templates','Templates'],
-        ],
-        'Setup' => [
+        ];
+        $groups['Setup'] = [
             ['drugs.php',    'drugs',    'Drugs'],
             ['settings.php', 'settings', 'Settings'],
             ['backup.php',   'backup',   'Backup'],
-        ],
-    ];
+        ];
+    }
+    return $groups;
 }
 
 /* Kept so any older code calling nav_items() still works. */
