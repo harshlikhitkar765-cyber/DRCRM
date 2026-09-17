@@ -56,7 +56,17 @@ $selectedId = gi('patient');
 $pts=$pdo->query('SELECT id,name,phone FROM patients ORDER BY name')->fetchAll();
 head('New Appointment');
 ?>
-<div class="page-h"><div><h1>Book appointment</h1><p>Evening OPD · <?= e(clinic('hours')) ?></p></div></div>
+<div class="page-h"><div><h1>Book appointment</h1><p>Evening OPD · <?= e(clinic('hours')) ?></p></div>
+  <div class="spacer"></div><a class="btn ghost sm" href="patient_new.php">+ Add patient</a>
+</div>
+<?php if (!$pts): ?>
+  <div class="card" style="max-width:620px">
+    <h3>No patient records yet</h3>
+    <p class="sub">Add the patient to the register before booking their appointment.</p>
+    <div style="margin-top:14px"><a class="btn" href="patient_new.php">+ Add patient</a>
+      <a class="btn ghost" href="queue.php">Back to queue</a></div>
+  </div>
+<?php else: ?>
 <div class="card" style="max-width:620px"><form method="post">
   <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
   <div class="field"><label>Patient *</label><select name="patient_id" required>
@@ -75,4 +85,5 @@ head('New Appointment');
   <button class="btn">Book appointment</button>
   <a class="btn ghost" href="queue.php">Cancel</a>
 </form></div>
+<?php endif; ?>
 <?php foot(); ?>
